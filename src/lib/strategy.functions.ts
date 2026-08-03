@@ -12,10 +12,11 @@ export const extractStrategy = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => ExtractInput.parse(input))
   .handler(async ({ data, context }) => {
     const { runExtraction } = await import("./extraction.server");
+    const { resolveSourceMetadata } = await import("./source-metadata.server");
 
     const { data: strategy, error } = await context.supabase
       .from("strategies")
-      .select("id, name, source_type, source_content, definition")
+      .select("id, name, source_type, source_content, source_url, definition")
       .eq("id", data.strategyId)
       .single();
 
@@ -34,19 +35,31 @@ export const extractStrategy = createServerFn({ method: "POST" })
         .map((r) => ({ question: r.question, answer: r.answer as string }));
     }
 
-    const result = await runExtraction({
-      name: strategy.name,
-      sourceType: strategy.source_type,
-      sourceContent: strategy.source_content,
-      existing: data.includeAnswers ? strategy.definition : undefined,
-      answers,
-    });
+    let result;
+    try {
+      const sourceMeta = await resolveSourceMetadata(strategy.source_url);
+      result = await runExtraction({
+        name: strategy.name,
+        sourceType: strategy.source_type,
+        sourceContent: strategy.source_content,
+        sourceMeta,
+        existing: data.includeAnswers ? strategy.definition : undefined,
+        answers,
+      });
+    } catch (err) {
+      await context.supabase
+        .from("strategies")
+        .update({ status: "failed" })
+        .eq("id", data.strategyId);
+      throw err instanceof Error ? err : new Error("Extraction failed");
+    }
 
     const { error: updateError } = await context.supabase
       .from("strategies")
       .update({ definition: result.definition, status: "extracted" })
       .eq("id", data.strategyId);
     if (updateError) throw new Error(updateError.message);
+
 
     if (data.includeAnswers) {
       await context.supabase
