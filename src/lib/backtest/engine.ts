@@ -90,12 +90,14 @@ export function runBacktest(
         bars_in_trade: 0,
       };
 
+      const stopRule =
+        side === "short" && compiled.stop?.short ? compiled.stop.short : compiled.stop;
       let stopPrice: number | null = null;
-      if (compiled.stop) {
-        const value = ctx.at(compiled.stop.node, i, vars);
+      if (stopRule) {
+        const value = ctx.at(stopRule.node, i, vars);
         if (!Number.isNaN(value)) {
           stopPrice =
-            compiled.stop.kind === "price"
+            stopRule.kind === "price"
               ? value
               : side === "long"
                 ? entryPrice - Math.abs(value)
@@ -108,18 +110,19 @@ export function runBacktest(
       vars['risk'] = riskPerUnit;
       vars['risk_per_unit'] = riskPerUnit;
 
+      const targetRule =
+        side === "short" && compiled.target?.short ? compiled.target.short : compiled.target;
       let targetPrice: number | null = null;
-      if (compiled.target) {
-        const value = ctx.at(compiled.target.node, i, vars);
+      if (targetRule) {
+        const value = ctx.at(targetRule.node, i, vars);
         if (!Number.isNaN(value)) {
-          if (compiled.target.kind === "price") targetPrice = value;
-          else if (compiled.target.kind === "r_multiple")
-            targetPrice = side === "long" ? entryPrice + Math.abs(value) : entryPrice - Math.abs(value);
+          if (targetRule.kind === "price") targetPrice = value;
           else
             targetPrice =
               side === "long" ? entryPrice + Math.abs(value) : entryPrice - Math.abs(value);
         }
       }
+
       vars['target_price'] = targetPrice ?? NaN;
 
       let quantity = config.defaultQuantity;
