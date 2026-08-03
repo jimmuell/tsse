@@ -41,6 +41,7 @@ export type Database = {
           scores: Json
           source_content: string
           source_type: string
+          source_url: string | null
           status: string
           updated_at: string
           user_id: string
@@ -54,6 +55,7 @@ export type Database = {
           scores?: Json
           source_content?: string
           source_type?: string
+          source_url?: string | null
           status?: string
           updated_at?: string
           user_id: string
@@ -67,6 +69,7 @@ export type Database = {
           scores?: Json
           source_content?: string
           source_type?: string
+          source_url?: string | null
           status?: string
           updated_at?: string
           user_id?: string
