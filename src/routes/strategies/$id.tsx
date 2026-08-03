@@ -285,6 +285,20 @@ function StrategyDetail() {
         </div>
       </div>
 
+      {strategy?.status === "failed" && !extracting ? (
+        <div className="mt-6 flex flex-wrap items-center gap-3 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3">
+          <AlertTriangle className="size-4 text-destructive" />
+          <p className="min-w-0 flex-1 text-sm">
+            The last extraction failed, so this specification is still empty.
+          </p>
+          <Button size="sm" variant="outline" onClick={() => doExtract(false)}>
+            Retry extraction
+          </Button>
+        </div>
+      ) : null}
+
+
+
       <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0">
           <Tabs defaultValue="spec">
