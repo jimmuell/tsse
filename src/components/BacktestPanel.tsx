@@ -140,33 +140,21 @@ export function BacktestPanel({
     }
     setRunning(true);
     try {
-      const { data, error } = await supabase
-        .from("datasets")
-        .select("id, name, bars")
-        .eq("id", datasetId)
-        .maybeSingle();
-      if (error) throw error;
-      const bars = (data?.bars ?? []) as unknown as Bar[];
-      if (!Array.isArray(bars) || bars.length < 2) {
-        toast.error("That data set has no usable bars.");
-        return;
-      }
-      const outcome = runBacktest(bars, compiled, config);
-      setResult(outcome);
-      const { error: insertError } = await supabase.from("backtest_runs").insert({
-        user_id: userId,
-        strategy_id: strategyId,
-        dataset_id: datasetId,
-        dataset_name: data?.name ?? "",
-        config: config as unknown as never,
-        compiled: { issues: compiled.issues } as unknown as never,
-        stats: outcome.stats as unknown as never,
-        trades: outcome.trades as unknown as never,
-        equity: outcome.equity as unknown as never,
+      const outcome = await runBacktestOnServer({
+        data: {
+          strategyId,
+          datasetId,
+          config,
+          overrides,
+          ...(from ? { from } : {}),
+          ...(to ? { to } : {}),
+        },
       });
-      if (insertError) throw insertError;
+      setResult(outcome);
       await queryClient.invalidateQueries({ queryKey: ["backtest-runs", strategyId] });
-      toast.success(`${outcome.stats.trades} trades simulated`);
+      toast.success(
+        `${outcome.stats.trades} trades over ${outcome.barsUsed.toLocaleString()} bars`,
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "The backtest could not be run.");
     } finally {
