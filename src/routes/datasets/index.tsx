@@ -152,11 +152,11 @@ function DatasetsPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="csv">CSV file</Label>
+            <Label htmlFor="csv">CSV / TXT file</Label>
             <Input
               id="csv"
               type="file"
-              accept=".csv,text/csv"
+              accept=".csv,.txt,text/csv,text/plain"
               disabled={uploading}
               onChange={(e) => {
                 const file = e.target.files?.[0];
@@ -167,7 +167,10 @@ function DatasetsPage() {
           </div>
         </div>
         <p className="mt-3 font-mono text-xs text-muted-foreground">
-          Expected columns: date/time, open, high, low, close, volume (optional).
+          date/time, open, high, low, close, volume — header row optional. Headerless exports
+          (date,time,o,h,l,c,v) from Kinetick / FirstRate work as-is. Very large intraday files keep
+          the most recent {MAX_BARS.toLocaleString()} bars.
+
         </p>
         {uploading ? (
           <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
