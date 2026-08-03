@@ -71,6 +71,44 @@ export type Database = {
           },
         ]
       }
+      dataset_bars: {
+        Row: {
+          c: number
+          dataset_id: string
+          h: number
+          l: number
+          o: number
+          t: number
+          v: number
+        }
+        Insert: {
+          c: number
+          dataset_id: string
+          h: number
+          l: number
+          o: number
+          t: number
+          v?: number
+        }
+        Update: {
+          c?: number
+          dataset_id?: string
+          h?: number
+          l?: number
+          o?: number
+          t?: number
+          v?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dataset_bars_dataset_id_fkey"
+            columns: ["dataset_id"]
+            isOneToOne: false
+            referencedRelation: "datasets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       datasets: {
         Row: {
           bar_count: number
@@ -80,6 +118,7 @@ export type Database = {
           id: string
           name: string
           start_at: string | null
+          storage: string
           symbol: string
           timeframe: string
           updated_at: string
@@ -93,6 +132,7 @@ export type Database = {
           id?: string
           name?: string
           start_at?: string | null
+          storage?: string
           symbol?: string
           timeframe?: string
           updated_at?: string
@@ -106,6 +146,7 @@ export type Database = {
           id?: string
           name?: string
           start_at?: string | null
+          storage?: string
           symbol?: string
           timeframe?: string
           updated_at?: string

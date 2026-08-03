@@ -25,8 +25,19 @@ import {
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { compileStrategy } from "@/lib/backtest/compile";
-import { runBacktest } from "@/lib/backtest/engine";
-import { DEFAULT_CONFIG, type Bar, type BacktestConfig, type BacktestResult } from "@/lib/backtest/types";
+import { runBacktestOnServer } from "@/lib/backtest.functions";
+import {
+  RULE_FIELDS,
+  applyOverrides,
+  initialOverrides,
+  overrideKeyOf,
+  type RuleOverrides,
+} from "@/lib/backtest/rules";
+import {
+  DEFAULT_CONFIG,
+  type BacktestConfig,
+  type ServerRunResult,
+} from "@/lib/backtest/types";
 import type { StrategyDefinition } from "@/lib/strategy-schema";
 
 function money(value: number): string {
@@ -48,84 +59,9 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: "up
   );
 }
 
-const RULE_FIELDS = [
-  {
-    section: "entry",
-    key: "long_entry",
-    label: "Long entry",
-    placeholder: "close > sma(close, 20) and rsi(close, 14) > 55",
-  },
-  {
-    section: "entry",
-    key: "short_entry",
-    label: "Short entry",
-    placeholder: "close < sma(close, 20)",
-  },
-  {
-    section: "stop_loss",
-    key: "stop_formula",
-    label: "Stop loss",
-    placeholder: "2 * atr(14)",
-  },
-  {
-    section: "profit_target",
-    key: "target_formula",
-    label: "Profit target",
-    placeholder: "2 * risk",
-  },
-  {
-    section: "position_sizing",
-    key: "sizing_formula",
-    label: "Position size (optional)",
-    placeholder: "leave empty to use default quantity",
-  },
-  {
-    section: "exit",
-    key: "exit_conditions",
-    label: "Exit rule (optional)",
-    placeholder: "close < sma(close, 20)",
-  },
-] as const;
-
-type RuleOverrides = Record<string, string>;
-
-function overrideKeyOf(f: { section: string; key: string }) {
-  return `${f.section}.${f.key}`;
-}
-
-function initialOverrides(strategyId: string, definition: StrategyDefinition): RuleOverrides {
-  let stored: RuleOverrides = {};
-  if (typeof window !== "undefined") {
-    try {
-      stored = JSON.parse(window.localStorage.getItem(`tsse:rules:${strategyId}`) ?? "{}");
-    } catch {
-      stored = {};
-    }
-  }
-  const out: RuleOverrides = {};
-  for (const f of RULE_FIELDS) {
-    const k = overrideKeyOf(f);
-    out[k] = stored[k] ?? (definition.sections?.[f.section]?.[f.key] ?? "");
-  }
-  return out;
-}
-
-function applyOverrides(definition: StrategyDefinition, overrides: RuleOverrides): StrategyDefinition {
-  const sections: StrategyDefinition["sections"] = {
-    ...(definition.sections ?? {}),
-  };
-  for (const f of RULE_FIELDS) {
-    sections[f.section] = {
-      ...(sections[f.section] ?? {}),
-      [f.key]: overrides[overrideKeyOf(f)] ?? "",
-    };
-  }
-  return { ...definition, sections };
-}
 
 export function BacktestPanel({
   strategyId,
-  userId,
   definition,
 }: {
   strategyId: string;
@@ -136,7 +72,9 @@ export function BacktestPanel({
   const [datasetId, setDatasetId] = useState<string>("");
   const [config, setConfig] = useState<BacktestConfig>(DEFAULT_CONFIG);
   const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<BacktestResult | null>(null);
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [result, setResult] = useState<ServerRunResult | null>(null);
   const [overrides, setOverrides] = useState<RuleOverrides>(() =>
     initialOverrides(strategyId, definition),
   );
@@ -202,33 +140,21 @@ export function BacktestPanel({
     }
     setRunning(true);
     try {
-      const { data, error } = await supabase
-        .from("datasets")
-        .select("id, name, bars")
-        .eq("id", datasetId)
-        .maybeSingle();
-      if (error) throw error;
-      const bars = (data?.bars ?? []) as unknown as Bar[];
-      if (!Array.isArray(bars) || bars.length < 2) {
-        toast.error("That data set has no usable bars.");
-        return;
-      }
-      const outcome = runBacktest(bars, compiled, config);
-      setResult(outcome);
-      const { error: insertError } = await supabase.from("backtest_runs").insert({
-        user_id: userId,
-        strategy_id: strategyId,
-        dataset_id: datasetId,
-        dataset_name: data?.name ?? "",
-        config: config as unknown as never,
-        compiled: { issues: compiled.issues } as unknown as never,
-        stats: outcome.stats as unknown as never,
-        trades: outcome.trades as unknown as never,
-        equity: outcome.equity as unknown as never,
+      const outcome = await runBacktestOnServer({
+        data: {
+          strategyId,
+          datasetId,
+          config,
+          overrides,
+          ...(from ? { from } : {}),
+          ...(to ? { to } : {}),
+        },
       });
-      if (insertError) throw insertError;
+      setResult(outcome);
       await queryClient.invalidateQueries({ queryKey: ["backtest-runs", strategyId] });
-      toast.success(`${outcome.stats.trades} trades simulated`);
+      toast.success(
+        `${outcome.stats.trades} trades over ${outcome.barsUsed.toLocaleString()} bars`,
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "The backtest could not be run.");
     } finally {
@@ -381,6 +307,14 @@ export function BacktestPanel({
               onChange={(e) => setConfig({ ...config, slippage: Number(e.target.value) || 0 })}
             />
           </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="from">From date (optional)</Label>
+            <Input id="from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="to">To date (optional)</Label>
+            <Input id="to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          </div>
           <div className="flex items-end gap-6">
             <div className="flex items-center gap-2">
               <Switch
@@ -422,6 +356,18 @@ export function BacktestPanel({
 
       {result ? (
         <>
+          <p className="text-xs text-muted-foreground">
+            {result.barsUsed.toLocaleString()} bars simulated
+            {result.rangeStart && result.rangeEnd
+              ? ` · ${new Date(result.rangeStart).toISOString().slice(0, 10)} → ${new Date(
+                  result.rangeEnd,
+                ).toISOString().slice(0, 10)}`
+              : ""}
+            {result.barsTruncated ? " · range capped at 1,000,000 bars — narrow the dates to test an earlier window" : ""}
+            {result.tradesTruncated
+              ? ` · showing first ${result.trades.length.toLocaleString()} of ${result.totalTrades.toLocaleString()} trades`
+              : ""}
+          </p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Stat
               label="Net P&L"
