@@ -274,6 +274,50 @@ export function BacktestPanel({
       ) : null}
 
       <div className="rounded-lg border border-border bg-card p-5">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium">Executable rules</p>
+            <p className="text-xs text-muted-foreground">
+              Rewrite the prose from the spec as expressions the engine can run. Fields: open, high,
+              low, close, volume. Indicators: sma, ema, atr, rsi, highest, lowest. Trade vars:
+              entry_price, risk, bars_in_trade.
+            </p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={resetRules}>
+            Reset to spec
+          </Button>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {RULE_FIELDS.map((f) => {
+            const k = overrideKeyOf(f);
+            const issue = compiled.issues.find((i) => i.section === f.section && i.field === f.key);
+            return (
+              <div key={k} className="space-y-1.5">
+                <Label htmlFor={k}>{f.label}</Label>
+                <Input
+                  id={k}
+                  className="font-mono text-xs"
+                  value={overrides[k] ?? ""}
+                  placeholder={f.placeholder}
+                  onChange={(e) => setRule(k, e.target.value)}
+                />
+                {issue ? (
+                  <p
+                    className={`text-[11px] ${
+                      issue.level === "blocker" ? "text-destructive" : "text-muted-foreground"
+                    }`}
+                  >
+                    {issue.message}
+                  </p>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-border bg-card p-5">
+
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
             <Label>Data set</Label>
