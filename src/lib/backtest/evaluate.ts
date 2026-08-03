@@ -76,6 +76,20 @@ export const KNOWN_FUNCTIONS = [...SERIES_FUNCTIONS, ...SCALAR_FUNCTIONS];
 
 export type Vars = Record<string, number>;
 
+/** Smallest price increment seen in the data, used for tick-based rules. */
+function inferTickSize(close: number[]): number {
+  let min = Infinity;
+  const limit = Math.min(close.length, 5000);
+  for (let i = 1; i < limit; i++) {
+    const d = Math.abs((close[i] as number) - (close[i - 1] as number));
+    if (d > 1e-9 && d < min) min = d;
+  }
+  if (!Number.isFinite(min)) return 0.01;
+  return Math.round(min * 1e8) / 1e8;
+}
+
+
+
 /** Evaluates parsed rule trees against a bar series. Indicator arrays are cached. */
 export class EvalContext {
   private readonly cache = new Map<string, number[]>();
