@@ -132,6 +132,25 @@ function NewStrategy() {
           </div>
 
           <div className="space-y-1.5">
+            <Label htmlFor="source-url" className="text-xs">
+              Source URL (optional)
+            </Label>
+            <Input
+              id="source-url"
+              type="url"
+              value={sourceUrl}
+              placeholder="https://www.youtube.com/watch?v=…"
+              onChange={(e) => setSourceUrl(e.target.value)}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Paste the YouTube link and we'll pull the real title and channel into Metadata instead
+              of guessing.
+            </p>
+          </div>
+
+
+
+          <div className="space-y-1.5">
             <Label htmlFor="source" className="text-xs">
               {manual ? "Notes (optional)" : "Source material"}
             </Label>
