@@ -65,7 +65,10 @@ function StrategyDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("strategies")
-        .select("id, name, source_type, source_content, definition, status, updated_at")
+        .select(
+          "id, name, source_type, source_url, source_content, definition, status, updated_at",
+        )
+
         .eq("id", id)
         .single();
       if (error) throw error;
