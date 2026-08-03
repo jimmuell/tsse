@@ -1,10 +1,30 @@
 import type { Bar } from "./types";
 
+export type CsvRowError = {
+  /** 1-based line number in the source file. */
+  line: number;
+  reason: string;
+  raw: string;
+  cells: string[];
+  parsed: { time: string; open: string; high: string; low: string; close: string; volume: string };
+};
+
+export type CsvLayout = {
+  delimiter: string;
+  headerless: boolean;
+  columns: { time: number; timeOnly: number; open: number; high: number; low: number; close: number; volume: number };
+  totalRows: number;
+};
+
 export type CsvParseResult = {
   bars: Bar[];
   errors: string[];
   skipped: number;
+  rowErrors: CsvRowError[];
+  layout: CsvLayout | null;
 };
+
+const MAX_ROW_ERRORS = 10;
 
 const ALIASES: Record<string, string[]> = {
   t: ["time", "timestamp", "date", "datetime", "date_time", "opentime", "open_time", "bar_time"],
@@ -74,7 +94,8 @@ export function parseCsv(text: string): CsvParseResult {
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter((l) => l.length > 0);
-  if (lines.length < 1) return { bars: [], errors: ["The file has no data rows."], skipped: 0 };
+  if (lines.length < 1)
+    return { bars: [], errors: ["The file has no data rows."], skipped: 0, rowErrors: [], layout: null };
 
   const headerLine = lines[0] as string;
   const delimiter = [",", ";", "\t", "|"]
@@ -107,6 +128,16 @@ export function parseCsv(text: string): CsvParseResult {
           "Could not read this file. Expected columns like date, open, high, low, close, volume — with or without a header row.",
         ],
         skipped: 0,
+        rowErrors: [
+          {
+            line: 1,
+            reason: `First line has ${cells.length} column(s) and ${numericTail} numeric value(s); expected at least 5 columns with 4 numeric prices.`,
+            raw: headerLine,
+            cells,
+            parsed: { time: "—", open: "—", high: "—", low: "—", close: "—", volume: "—" },
+          },
+        ],
+        layout: null,
       };
     }
     firstDataRow = 0;
@@ -133,16 +164,27 @@ export function parseCsv(text: string): CsvParseResult {
       bars: [],
       errors: ["Missing required column: date/time."],
       skipped: 0,
+      rowErrors: [],
+      layout: null,
     };
   } else {
     const timeCol = headers.findIndex((h) => h === "time");
     if (timeCol >= 0 && timeCol !== iT) iTimeOnly = timeCol;
   }
 
+  const layout: CsvLayout = {
+    delimiter,
+    headerless,
+    columns: { time: iT, timeOnly: iTimeOnly, open: iO, high: iH, low: iL, close: iC, volume: iV },
+    totalRows: lines.length - firstDataRow,
+  };
+
   const bars: Bar[] = [];
+  const rowErrors: CsvRowError[] = [];
   let skipped = 0;
   for (let i = firstDataRow; i < lines.length; i++) {
-    const cells = splitLine(lines[i] as string, delimiter);
+    const line = lines[i] as string;
+    const cells = splitLine(line, delimiter);
     const rawTime = cells[iT] ?? "";
     const t =
       iTimeOnly >= 0 ? parseTime(cells[iTimeOnly] ?? "", rawTime) : parseTime(rawTime);
@@ -153,6 +195,43 @@ export function parseCsv(text: string): CsvParseResult {
     const v = iV >= 0 ? Number(cells[iV]) : 0;
     if (t === null || [o, h, l, c].some((n) => !Number.isFinite(n))) {
       skipped++;
+      if (rowErrors.length < MAX_ROW_ERRORS) {
+        const bad: string[] = [];
+        if (t === null)
+          bad.push(
+            `unreadable date/time ${JSON.stringify(
+              iTimeOnly >= 0 ? `${rawTime} ${cells[iTimeOnly] ?? ""}`.trim() : rawTime,
+            )}`,
+          );
+        const priceLabels: Array<[string, number, number]> = [
+          ["open", iO, o],
+          ["high", iH, h],
+          ["low", iL, l],
+          ["close", iC, c],
+        ];
+        for (const [label, idx, num] of priceLabels) {
+          if (!Number.isFinite(num))
+            bad.push(
+              cells[idx] === undefined
+                ? `missing ${label} (column ${idx + 1} of ${cells.length})`
+                : `non-numeric ${label} ${JSON.stringify(cells[idx])}`,
+            );
+        }
+        rowErrors.push({
+          line: i + 1,
+          reason: bad.join("; ") || "row could not be read",
+          raw: line.length > 240 ? `${line.slice(0, 240)}…` : line,
+          cells,
+          parsed: {
+            time: t === null ? "invalid" : new Date(t).toISOString(),
+            open: cells[iO] ?? "—",
+            high: cells[iH] ?? "—",
+            low: cells[iL] ?? "—",
+            close: cells[iC] ?? "—",
+            volume: iV >= 0 ? cells[iV] ?? "—" : "—",
+          },
+        });
+      }
       if (errors.length < 3) errors.push(`Row ${i + 1} could not be read and was skipped.`);
       continue;
     }
@@ -160,6 +239,6 @@ export function parseCsv(text: string): CsvParseResult {
   }
 
   bars.sort((a, b) => a.t - b.t);
-  return { bars, errors, skipped };
+  return { bars, errors, skipped, rowErrors, layout };
 }
 
