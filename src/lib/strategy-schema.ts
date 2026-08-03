@@ -52,6 +52,7 @@ export type StrategyDefinition = {
 };
 
 export const SOURCE_TYPES = [
+  { value: "video", label: "Video link (YouTube)" },
   { value: "manual", label: "Manual description" },
   { value: "transcript", label: "Pasted transcript" },
   { value: "article", label: "Pasted article / blog text" },
