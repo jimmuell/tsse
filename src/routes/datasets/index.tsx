@@ -37,11 +37,42 @@ export const Route = createFileRoute("/datasets/")({
 /** jsonb payload guard — keeps the most recent slice of very large intraday files. */
 const MAX_BARS = 200_000;
 
+/** Reading a multi-GB file whole fails in the browser; only the tail is ever kept anyway. */
+const MAX_READ_BYTES = 48 * 1024 * 1024;
+
+/**
+ * Reads a file as text. Huge files are read as a head chunk (to keep any header row)
+ * plus the most recent tail bytes, avoiding browser "file could not be read" failures.
+ */
+async function readImportText(file: File): Promise<string> {
+  async function slice(blob: Blob): Promise<string> {
+    try {
+      return await blob.text();
+    } catch {
+      throw new Error(
+        "The browser could not read that file. It may have moved, or it is too large to open — try re-selecting it, or split it into a smaller file.",
+      );
+    }
+  }
+
+  if (file.size <= MAX_READ_BYTES) return slice(file);
+
+  const headText = await slice(file.slice(0, 64 * 1024));
+  const firstLine = headText.split(/\r?\n/, 1)[0] ?? "";
+  const hasHeader = /[a-z]{2,}/i.test(firstLine.replace(/[^\x20-\x7e]/g, ""));
+
+  const tailText = await slice(file.slice(file.size - MAX_READ_BYTES));
+  // Drop the first (likely partial) line of the tail chunk.
+  const tailBody = tailText.slice(tailText.indexOf("\n") + 1);
+  return hasHeader ? `${firstLine}\n${tailBody}` : tailBody;
+}
+
 function formatDate(value: string | null): string {
 
   if (!value) return "—";
   return new Date(value).toISOString().slice(0, 10);
 }
+
 
 function DatasetsPage() {
   const { user, loading } = useAuth();
