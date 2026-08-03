@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { generateText, Output, NoObjectGeneratedError } from "ai";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
+import type { SourceMetadata } from "./source-metadata.server";
+
 
 function parseLooseJson(text: string | undefined): unknown {
   if (!text) return undefined;
