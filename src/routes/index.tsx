@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileCode2, Plus, Trash2 } from "lucide-react";
@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertDialog,
@@ -19,6 +20,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -44,7 +46,8 @@ function Dashboard() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
@@ -64,17 +67,34 @@ function Dashboard() {
     },
   });
 
+  const ids = useMemo(() => (strategies ?? []).map((s) => s.id), [strategies]);
+  const allSelected = ids.length > 0 && selected.length === ids.length;
+
+  // Drop selections for rows that no longer exist.
+  useEffect(() => {
+    setSelected((prev) => prev.filter((id) => ids.includes(id)));
+  }, [ids]);
+
+  function toggle(id: string) {
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
   async function confirmDelete() {
-    if (!pendingDelete) return;
+    if (selected.length === 0) return;
     setDeleting(true);
     try {
-      const { error } = await supabase.from("strategies").delete().eq("id", pendingDelete.id);
+      const { error } = await supabase.from("strategies").delete().in("id", selected);
       if (error) throw error;
       await queryClient.invalidateQueries({ queryKey: ["strategies", user?.id] });
-      toast.success("Specification deleted");
-      setPendingDelete(null);
+      toast.success(
+        selected.length === 1
+          ? "Specification deleted"
+          : `${selected.length} specifications deleted`,
+      );
+      setSelected([]);
+      setConfirmOpen(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not delete strategy");
+      toast.error(err instanceof Error ? err.message : "Could not delete strategies");
     } finally {
       setDeleting(false);
     }
@@ -82,11 +102,36 @@ function Dashboard() {
 
   return (
     <AppShell email={user?.email ?? null}>
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight">Strategy specifications</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Every spec is scored for completeness, determinism and ambiguity before it can be exported.
-        </p>
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Strategy specifications</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Every spec is scored for completeness, determinism and ambiguity before it can be
+            exported.
+          </p>
+        </div>
+        {ids.length > 0 && (
+          <div className="flex items-center gap-3">
+            <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+              <Checkbox
+                checked={allSelected}
+                onCheckedChange={(v) => setSelected(v === true ? ids : [])}
+                aria-label="Select all specifications"
+              />
+              Select all
+            </label>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="gap-1.5"
+              disabled={selected.length === 0}
+              onClick={() => setConfirmOpen(true)}
+            >
+              <Trash2 className="size-3.5" />
+              Delete{selected.length > 0 ? ` (${selected.length})` : ""}
+            </Button>
+          </div>
+        )}
       </div>
 
       {isLoading ? (
@@ -114,15 +159,18 @@ function Dashboard() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {strategies.map((s) => {
             const scores = (s.scores ?? {}) as Record<string, number>;
+            const isSelected = selected.includes(s.id);
             return (
               <div key={s.id} className="relative">
                 <Link
                   to="/strategies/$id"
                   params={{ id: s.id }}
-                  className="group block rounded-md border border-border bg-card p-4 transition-colors hover:border-primary/40"
+                  className={`group block rounded-md border bg-card p-4 transition-colors hover:border-primary/40 ${
+                    isSelected ? "border-primary ring-1 ring-primary/30" : "border-border"
+                  }`}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <h2 className="text-sm font-semibold leading-snug group-hover:text-primary">
+                    <h2 className="ml-7 text-sm font-semibold leading-snug group-hover:text-primary">
                       {s.name}
                     </h2>
                     <Badge
@@ -132,7 +180,7 @@ function Dashboard() {
                       {s.status}
                     </Badge>
                   </div>
-                  <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+                  <p className="ml-7 mt-1 font-mono text-[11px] text-muted-foreground">
                     {s.source_type}
                   </p>
                   <dl className="mt-4 grid grid-cols-3 gap-2 border-t border-border pt-3">
@@ -152,12 +200,22 @@ function Dashboard() {
                     ))}
                   </dl>
                 </Link>
+                <div className="absolute left-4 top-4">
+                  <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={() => toggle(s.id)}
+                    aria-label={`Select ${s.name}`}
+                  />
+                </div>
                 <Button
                   variant="ghost"
                   size="icon"
                   aria-label={`Delete ${s.name}`}
                   className="absolute right-2 top-2 size-7 text-muted-foreground hover:text-destructive"
-                  onClick={() => setPendingDelete({ id: s.id, name: s.name })}
+                  onClick={() => {
+                    setSelected([s.id]);
+                    setConfirmOpen(true);
+                  }}
                 >
                   <Trash2 className="size-3.5" />
                 </Button>
@@ -168,17 +226,21 @@ function Dashboard() {
       )}
 
       <AlertDialog
-        open={!!pendingDelete}
+        open={confirmOpen}
         onOpenChange={(open) => {
-          if (!open) setPendingDelete(null);
+          if (!open) setConfirmOpen(false);
         }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this specification?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {selected.length > 1
+                ? `Delete ${selected.length} specifications?`
+                : "Delete this specification?"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              “{pendingDelete?.name}” and its clarifying questions will be permanently removed. This
-              cannot be undone.
+              The selected specification{selected.length > 1 ? "s" : ""} and their clarifying
+              questions will be permanently removed. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -197,5 +259,5 @@ function Dashboard() {
       </AlertDialog>
     </AppShell>
   );
-
 }
+
