@@ -81,7 +81,9 @@ export type Database = {
         Row: {
           answer: string | null
           created_at: string
+          explanation: string | null
           id: string
+          options: Json
           question: string
           section: string
           status: string
@@ -91,7 +93,9 @@ export type Database = {
         Insert: {
           answer?: string | null
           created_at?: string
+          explanation?: string | null
           id?: string
+          options?: Json
           question: string
           section?: string
           status?: string
@@ -101,7 +105,9 @@ export type Database = {
         Update: {
           answer?: string | null
           created_at?: string
+          explanation?: string | null
           id?: string
+          options?: Json
           question?: string
           section?: string
           status?: string
