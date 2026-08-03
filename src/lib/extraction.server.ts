@@ -103,7 +103,12 @@ ${schemaDoc()}`;
 
 export type ExtractionResult = {
   definition: StrategyDefinition;
-  questions: { section: string; question: string }[];
+  questions: {
+    section: string;
+    question: string;
+    explanation?: string;
+    options?: { label: string; answer: string }[];
+  }[];
 };
 
 export async function runExtraction(input: {
