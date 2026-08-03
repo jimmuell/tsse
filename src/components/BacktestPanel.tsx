@@ -48,6 +48,81 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: "up
   );
 }
 
+const RULE_FIELDS = [
+  {
+    section: "entry",
+    key: "long_entry",
+    label: "Long entry",
+    placeholder: "close > sma(close, 20) and rsi(close, 14) > 55",
+  },
+  {
+    section: "entry",
+    key: "short_entry",
+    label: "Short entry",
+    placeholder: "close < sma(close, 20)",
+  },
+  {
+    section: "stop_loss",
+    key: "stop_formula",
+    label: "Stop loss",
+    placeholder: "2 * atr(14)",
+  },
+  {
+    section: "profit_target",
+    key: "target_formula",
+    label: "Profit target",
+    placeholder: "2 * risk",
+  },
+  {
+    section: "position_sizing",
+    key: "sizing_formula",
+    label: "Position size (optional)",
+    placeholder: "leave empty to use default quantity",
+  },
+  {
+    section: "exit",
+    key: "exit_conditions",
+    label: "Exit rule (optional)",
+    placeholder: "close < sma(close, 20)",
+  },
+] as const;
+
+type RuleOverrides = Record<string, string>;
+
+function overrideKeyOf(f: { section: string; key: string }) {
+  return `${f.section}.${f.key}`;
+}
+
+function initialOverrides(strategyId: string, definition: StrategyDefinition): RuleOverrides {
+  let stored: RuleOverrides = {};
+  if (typeof window !== "undefined") {
+    try {
+      stored = JSON.parse(window.localStorage.getItem(`tsse:rules:${strategyId}`) ?? "{}");
+    } catch {
+      stored = {};
+    }
+  }
+  const out: RuleOverrides = {};
+  for (const f of RULE_FIELDS) {
+    const k = overrideKeyOf(f);
+    out[k] = stored[k] ?? (definition.sections?.[f.section]?.[f.key] ?? "");
+  }
+  return out;
+}
+
+function applyOverrides(definition: StrategyDefinition, overrides: RuleOverrides): StrategyDefinition {
+  const sections: StrategyDefinition["sections"] = {
+    ...(definition.sections ?? {}),
+  };
+  for (const f of RULE_FIELDS) {
+    sections[f.section] = {
+      ...(sections[f.section] ?? {}),
+      [f.key]: overrides[overrideKeyOf(f)] ?? "",
+    };
+  }
+  return { ...definition, sections };
+}
+
 export function BacktestPanel({
   strategyId,
   userId,
@@ -62,8 +137,35 @@ export function BacktestPanel({
   const [config, setConfig] = useState<BacktestConfig>(DEFAULT_CONFIG);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<BacktestResult | null>(null);
+  const [overrides, setOverrides] = useState<RuleOverrides>(() =>
+    initialOverrides(strategyId, definition),
+  );
 
-  const compiled = useMemo(() => compileStrategy(definition), [definition]);
+  function setRule(key: string, value: string) {
+    setOverrides((prev) => {
+      const next = { ...prev, [key]: value };
+      try {
+        window.localStorage.setItem(`tsse:rules:${strategyId}`, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
+
+  function resetRules() {
+    try {
+      window.localStorage.removeItem(`tsse:rules:${strategyId}`);
+    } catch {
+      /* ignore */
+    }
+    setOverrides(initialOverrides(strategyId, { ...definition }));
+  }
+
+  const compiled = useMemo(
+    () => compileStrategy(applyOverrides(definition, overrides)),
+    [definition, overrides],
+  );
   const blockers = compiled.issues.filter((i) => i.level === "blocker");
   const warnings = compiled.issues.filter((i) => i.level === "warning");
 
@@ -172,6 +274,50 @@ export function BacktestPanel({
       ) : null}
 
       <div className="rounded-lg border border-border bg-card p-5">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium">Executable rules</p>
+            <p className="text-xs text-muted-foreground">
+              Rewrite the prose from the spec as expressions the engine can run. Fields: open, high,
+              low, close, volume. Indicators: sma, ema, atr, rsi, highest, lowest. Trade vars:
+              entry_price, risk, bars_in_trade.
+            </p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={resetRules}>
+            Reset to spec
+          </Button>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {RULE_FIELDS.map((f) => {
+            const k = overrideKeyOf(f);
+            const issue = compiled.issues.find((i) => i.section === f.section && i.field === f.key);
+            return (
+              <div key={k} className="space-y-1.5">
+                <Label htmlFor={k}>{f.label}</Label>
+                <Input
+                  id={k}
+                  className="font-mono text-xs"
+                  value={overrides[k] ?? ""}
+                  placeholder={f.placeholder}
+                  onChange={(e) => setRule(k, e.target.value)}
+                />
+                {issue ? (
+                  <p
+                    className={`text-[11px] ${
+                      issue.level === "blocker" ? "text-destructive" : "text-muted-foreground"
+                    }`}
+                  >
+                    {issue.message}
+                  </p>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-border bg-card p-5">
+
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
             <Label>Data set</Label>
@@ -265,6 +411,11 @@ export function BacktestPanel({
               Manage data
             </Link>
           </Button>
+          {!compiled.runnable ? (
+            <p className="text-xs text-muted-foreground">
+              Fix the highlighted rules above to enable the run.
+            </p>
+          ) : null}
         </div>
       </div>
 
