@@ -14,6 +14,105 @@ export type Database = {
   }
   public: {
     Tables: {
+      backtest_runs: {
+        Row: {
+          compiled: Json
+          config: Json
+          created_at: string
+          dataset_id: string | null
+          dataset_name: string
+          equity: Json
+          id: string
+          stats: Json
+          strategy_id: string
+          trades: Json
+          user_id: string
+        }
+        Insert: {
+          compiled?: Json
+          config?: Json
+          created_at?: string
+          dataset_id?: string | null
+          dataset_name?: string
+          equity?: Json
+          id?: string
+          stats?: Json
+          strategy_id: string
+          trades?: Json
+          user_id: string
+        }
+        Update: {
+          compiled?: Json
+          config?: Json
+          created_at?: string
+          dataset_id?: string | null
+          dataset_name?: string
+          equity?: Json
+          id?: string
+          stats?: Json
+          strategy_id?: string
+          trades?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "backtest_runs_dataset_id_fkey"
+            columns: ["dataset_id"]
+            isOneToOne: false
+            referencedRelation: "datasets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "backtest_runs_strategy_id_fkey"
+            columns: ["strategy_id"]
+            isOneToOne: false
+            referencedRelation: "strategies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      datasets: {
+        Row: {
+          bar_count: number
+          bars: Json
+          created_at: string
+          end_at: string | null
+          id: string
+          name: string
+          start_at: string | null
+          symbol: string
+          timeframe: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bar_count?: number
+          bars?: Json
+          created_at?: string
+          end_at?: string | null
+          id?: string
+          name?: string
+          start_at?: string | null
+          symbol?: string
+          timeframe?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bar_count?: number
+          bars?: Json
+          created_at?: string
+          end_at?: string | null
+          id?: string
+          name?: string
+          start_at?: string | null
+          symbol?: string
+          timeframe?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
