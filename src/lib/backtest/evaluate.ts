@@ -85,13 +85,89 @@ export class EvalContext {
   readonly close: number[];
   readonly volume: number[];
 
+  readonly tickSize: number;
+  private profile: { poc: number[]; vah: number[]; val: number[] } | null = null;
+
   constructor(readonly bars: Bar[]) {
     this.open = bars.map((b) => b.o);
     this.high = bars.map((b) => b.h);
     this.low = bars.map((b) => b.l);
     this.close = bars.map((b) => b.c);
     this.volume = bars.map((b) => b.v);
+    this.tickSize = inferTickSize(this.close);
   }
+
+  /**
+   * Prior-session volume profile. Bars are grouped by UTC calendar day, volume
+   * is spread across each bar's range in tick buckets, and every bar of a day
+   * sees the previous day's POC / value-area high / value-area low.
+   */
+  private sessionProfile(): { poc: number[]; vah: number[]; val: number[] } {
+    if (this.profile) return this.profile;
+    const n = this.bars.length;
+    const poc = new Array<number>(n).fill(NaN);
+    const vah = new Array<number>(n).fill(NaN);
+    const val = new Array<number>(n).fill(NaN);
+    const tick = this.tickSize;
+
+    let dayStart = 0;
+    let prior: { poc: number; vah: number; val: number } | null = null;
+    const dayKey = (t: number) => Math.floor(t / 86_400_000);
+
+    const flush = (from: number, to: number) => {
+      const buckets = new Map<number, number>();
+      for (let i = from; i < to; i++) {
+        const bar = this.bars[i] as Bar;
+        const lo = Math.round(bar.l / tick);
+        const hi = Math.round(bar.h / tick);
+        const steps = Math.max(1, hi - lo + 1);
+        const share = (bar.v || 1) / steps;
+        for (let b = lo; b <= hi; b++) buckets.set(b, (buckets.get(b) ?? 0) + share);
+      }
+      if (buckets.size === 0) return;
+      const sorted = [...buckets.entries()].sort((a, b) => a[0] - b[0]);
+      const total = sorted.reduce((s, e) => s + e[1], 0);
+      let pocIdx = 0;
+      for (let i = 1; i < sorted.length; i++) {
+        if ((sorted[i] as [number, number])[1] > (sorted[pocIdx] as [number, number])[1]) pocIdx = i;
+      }
+      let lo = pocIdx;
+      let hi = pocIdx;
+      let covered = (sorted[pocIdx] as [number, number])[1];
+      while (covered < total * 0.7 && (lo > 0 || hi < sorted.length - 1)) {
+        const below = lo > 0 ? (sorted[lo - 1] as [number, number])[1] : -1;
+        const above = hi < sorted.length - 1 ? (sorted[hi + 1] as [number, number])[1] : -1;
+        if (above >= below) {
+          hi += 1;
+          covered += above;
+        } else {
+          lo -= 1;
+          covered += below;
+        }
+      }
+      prior = {
+        poc: (sorted[pocIdx] as [number, number])[0] * tick,
+        vah: (sorted[hi] as [number, number])[0] * tick,
+        val: (sorted[lo] as [number, number])[0] * tick,
+      };
+    };
+
+    for (let i = 0; i < n; i++) {
+      const t = (this.bars[i] as Bar).t;
+      if (i > 0 && dayKey(t) !== dayKey((this.bars[i - 1] as Bar).t)) {
+        flush(dayStart, i);
+        dayStart = i;
+      }
+      if (prior) {
+        poc[i] = prior.poc;
+        vah[i] = prior.vah;
+        val[i] = prior.val;
+      }
+    }
+    this.profile = { poc, vah, val };
+    return this.profile;
+  }
+
 
   private constArg(node: Node, fnName: string): number {
     if (node.k === "num") return node.v;
