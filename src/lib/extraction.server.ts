@@ -200,5 +200,25 @@ ${input.sourceContent.slice(0, 60000)}
     warnings: output.warnings,
   });
 
-  return { definition, questions: output.questions ?? [] };
+  const questions = [...(output.questions ?? [])];
+  // Safety net: every unresolved ambiguity must surface as a question, even if
+  // the model skipped it while writing explanations/options.
+  const OPEN = new Set(["needs_user_input", "unknown", "cannot_determine"]);
+  for (const amb of output.ambiguities ?? []) {
+    if (!OPEN.has(amb.status)) continue;
+    const covered = questions.some(
+      (q) =>
+        q.question.toLowerCase().includes(amb.item.toLowerCase()) ||
+        amb.item.toLowerCase().includes(q.question.toLowerCase().slice(0, 20)),
+    );
+    if (covered) continue;
+    questions.push({
+      section: "",
+      question: `How should "${amb.item}" be defined?`,
+      explanation: amb.note || "The source material does not state this, so it must be specified before the strategy can be implemented.",
+      options: [],
+    });
+  }
+
+  return { definition, questions };
 }
