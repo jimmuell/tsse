@@ -251,7 +251,8 @@ function StrategyDetail() {
     );
   }
 
-  const openQuestions = (questionsQuery.data ?? []).filter((q) => !q.answer);
+  const allQuestions = questionsQuery.data ?? [];
+  const openQuestions = allQuestions.filter((q) => !q.answer);
 
   return (
     <AppShell email={user?.email ?? null}>
