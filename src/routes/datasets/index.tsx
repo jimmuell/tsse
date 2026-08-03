@@ -50,6 +50,8 @@ function DatasetsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [report, setReport] = useState<ImportReport | null>(null);
+
 
   const [symbol, setSymbol] = useState("");
   const [timeframe, setTimeframe] = useState("");
@@ -74,12 +76,21 @@ function DatasetsPage() {
   async function handleFile(file: File) {
     if (!user) return;
     setUploading(true);
+    setReport(null);
     try {
       const text = await file.text();
       const parsed = parseCsv(text);
-      const { errors, skipped } = parsed;
+      const { errors, skipped, rowErrors, layout } = parsed;
       let bars = parsed.bars;
       if (bars.length === 0) {
+        setReport({
+          fileName: file.name,
+          imported: 0,
+          skipped,
+          rowErrors,
+          layout,
+          fatal: errors[0] ?? "No usable rows found in that file.",
+        });
         toast.error(errors[0] ?? "No usable rows found in that file.");
         return;
       }
@@ -99,6 +110,9 @@ function DatasetsPage() {
         end_at: new Date(bars[bars.length - 1]!.t).toISOString(),
       });
       if (error) throw error;
+      if (skipped > 0) {
+        setReport({ fileName: file.name, imported: bars.length, skipped, rowErrors, layout });
+      }
       toast.success(
         `Imported ${bars.length.toLocaleString()} bars${skipped ? ` (${skipped} rows skipped)` : ""}${
           trimmed ? ` — kept the most recent ${MAX_BARS.toLocaleString()}, dropped ${trimmed.toLocaleString()} older bars` : ""
@@ -113,6 +127,7 @@ function DatasetsPage() {
       setUploading(false);
     }
   }
+
 
 
   async function remove(id: string) {
