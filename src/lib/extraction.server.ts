@@ -1,0 +1,132 @@
+import { z } from "zod";
+import { generateText, Output } from "ai";
+import { createLovableAiGatewayProvider } from "./ai-gateway.server";
+import {
+  AMBIGUITY_STATUSES,
+  SPEC_SECTIONS,
+  normalizeDefinition,
+  type StrategyDefinition,
+} from "./strategy-schema";
+
+const sectionsShape = Object.fromEntries(
+  SPEC_SECTIONS.map((section) => [
+    section.key,
+    z.object(
+      Object.fromEntries(section.fields.map((f) => [f.key, z.string()])) as Record<
+        string,
+        z.ZodString
+      >,
+    ),
+  ]),
+);
+
+const ExtractionSchema = z.object({
+  sections: z.object(sectionsShape as Record<string, z.ZodTypeAny>),
+  assumptions: z.array(
+    z.object({
+      term: z.string(),
+      interpretation: z.string(),
+      confidence: z.number(),
+    }),
+  ),
+  ambiguities: z.array(
+    z.object({
+      item: z.string(),
+      status: z.enum(AMBIGUITY_STATUSES),
+      note: z.string(),
+    }),
+  ),
+  confidence: z.array(z.object({ section: z.string(), value: z.number() })),
+  warnings: z.array(z.string()),
+  questions: z.array(z.object({ section: z.string(), question: z.string() })),
+});
+
+function schemaDoc(): string {
+  return SPEC_SECTIONS.map((section) => {
+    const fields = section.fields
+      .map(
+        (f) =>
+          `    - ${f.key} (${f.label})${f.required ? " [required]" : ""}${
+            f.rule ? " [must be a Boolean/arithmetic expression]" : ""
+          }${f.hint ? ` — ${f.hint}` : ""}`,
+      )
+      .join("\n");
+    return `  ${section.key} — ${section.title}: ${section.description}\n${fields}`;
+  }).join("\n");
+}
+
+const SYSTEM_PROMPT = `You are the Trading Strategy Specification Engine.
+
+Your job is to convert a natural-language or code description of a trading strategy into a deterministic, machine-readable Strategy Definition.
+
+Hard rules:
+- NEVER silently invent a rule. If the source does not state something, either leave the field empty and raise an ambiguity, or fill it and record an explicit assumption.
+- Every field marked as an expression must be written as a machine-evaluable Boolean or arithmetic expression using operators (>, <, >=, <=, ==, AND, OR, NOT, crosses_above, crosses_below) and named indicators such as close, high, low, volume, EMA(20), ATR(14), RSI(14), VWAP, VAH, prev_high.
+- Remove all subjective language. Words like "strong", "confirmation", "weakens", "significant", "clean" must be translated into a concrete expression and logged as an assumption.
+- Assumption format: term = the vague phrase from the source; interpretation = the exact expression you substituted; confidence = 0-100.
+- Ambiguity statuses: resolved, needs_user_input, unknown, cannot_determine.
+- confidence is a list of { section, value } pairs, one per section key you populated, value 0-100.
+- questions are short clarifying questions the user must answer to remove remaining ambiguity. Ask at most 8, only where it genuinely changes execution.
+- Always return every section key and every field key, using an empty string when unknown.
+
+Section schema:
+${schemaDoc()}`;
+
+export type ExtractionResult = {
+  definition: StrategyDefinition;
+  questions: { section: string; question: string }[];
+};
+
+export async function runExtraction(input: {
+  name: string;
+  sourceType: string;
+  sourceContent: string;
+  existing?: unknown;
+  answers?: { question: string; answer: string }[];
+}): Promise<ExtractionResult> {
+  const key = process.env["LOVABLE_API_KEY"];
+  if (!key) throw new Error("Missing LOVABLE_API_KEY");
+
+  const gateway = createLovableAiGatewayProvider(key);
+
+  const answerBlock =
+    input.answers && input.answers.length > 0
+      ? `\n\nThe user has answered these clarifying questions. Treat the answers as authoritative source material and mark the matching ambiguities as resolved:\n${input.answers
+          .map((a) => `Q: ${a.question}\nA: ${a.answer}`)
+          .join("\n\n")}`
+      : "";
+
+  const existingBlock = input.existing
+    ? `\n\nExisting partial specification (preserve any user-edited values unless an answer contradicts them):\n${JSON.stringify(
+        input.existing,
+      ).slice(0, 20000)}`
+    : "";
+
+  const { output } = await generateText({
+    model: gateway("google/gemini-3.5-flash"),
+    output: Output.object({ schema: ExtractionSchema }),
+    system: SYSTEM_PROMPT,
+    prompt: `Strategy name: ${input.name}
+Source type: ${input.sourceType}
+
+Source material:
+"""
+${input.sourceContent.slice(0, 60000)}
+"""${answerBlock}${existingBlock}`,
+  });
+
+  const confidence: Record<string, number> = {};
+  for (const entry of output.confidence ?? []) {
+    confidence[entry.section] = entry.value;
+  }
+
+  const definition = normalizeDefinition({
+    sections: output.sections,
+    assumptions: output.assumptions,
+    ambiguities: output.ambiguities,
+    confidence,
+    warnings: output.warnings,
+  });
+
+  return { definition, questions: output.questions ?? [] };
+}

@@ -10,33 +10,63 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as StrategiesIdRouteImport } from './routes/strategies/$id'
+import { Route as StrategiesNewRouteImport } from './routes/strategies/new'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StrategiesIdRoute = StrategiesIdRouteImport.update({
+  id: '/strategies/$id',
+  path: '/strategies/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StrategiesNewRoute = StrategiesNewRouteImport.update({
+  id: '/strategies/new',
+  path: '/strategies/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/strategies/$id': typeof StrategiesIdRoute
+  '/strategies/new': typeof StrategiesNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/strategies/$id': typeof StrategiesIdRoute
+  '/strategies/new': typeof StrategiesNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/strategies/$id': typeof StrategiesIdRoute
+  '/strategies/new': typeof StrategiesNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/auth' | '/strategies/$id' | '/strategies/new'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/auth' | '/strategies/$id' | '/strategies/new'
+  id: '__root__' | '/' | '/auth' | '/strategies/$id' | '/strategies/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthRoute: typeof AuthRoute
+  StrategiesIdRoute: typeof StrategiesIdRoute
+  StrategiesNewRoute: typeof StrategiesNewRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,22 +78,36 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/strategies/$id': {
+      id: '/strategies/$id'
+      path: '/strategies/$id'
+      fullPath: '/strategies/$id'
+      preLoaderRoute: typeof StrategiesIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/strategies/new': {
+      id: '/strategies/new'
+      path: '/strategies/new'
+      fullPath: '/strategies/new'
+      preLoaderRoute: typeof StrategiesNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthRoute: AuthRoute,
+  StrategiesIdRoute: StrategiesIdRoute,
+  StrategiesNewRoute: StrategiesNewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
