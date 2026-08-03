@@ -41,8 +41,10 @@ function NewStrategy() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [sourceType, setSourceType] = useState<string>("manual");
+  const [sourceUrl, setSourceUrl] = useState("");
   const [sourceContent, setSourceContent] = useState("");
   const [busy, setBusy] = useState(false);
+
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth" });
