@@ -1,6 +1,21 @@
 import { z } from "zod";
-import { generateText, Output } from "ai";
+import { generateText, Output, NoObjectGeneratedError } from "ai";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
+
+function parseLooseJson(text: string | undefined): unknown {
+  if (!text) return undefined;
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const candidate = (fenced?.[1] ?? text).trim();
+  const start = candidate.indexOf("{");
+  const end = candidate.lastIndexOf("}");
+  if (start === -1 || end <= start) return undefined;
+  try {
+    return JSON.parse(candidate.slice(start, end + 1));
+  } catch {
+    return undefined;
+  }
+}
+
 import {
   AMBIGUITY_STATUSES,
   SPEC_SECTIONS,
@@ -87,7 +102,7 @@ export async function runExtraction(input: {
   const key = process.env["LOVABLE_API_KEY"];
   if (!key) throw new Error("Missing LOVABLE_API_KEY");
 
-  const gateway = createLovableAiGatewayProvider(key);
+  const gateway = createLovableAiGatewayProvider(key, { structuredOutputs: true });
 
   const answerBlock =
     input.answers && input.answers.length > 0
@@ -102,18 +117,40 @@ export async function runExtraction(input: {
       ).slice(0, 20000)}`
     : "";
 
-  const { output } = await generateText({
-    model: gateway("google/gemini-3.5-flash"),
-    output: Output.object({ schema: ExtractionSchema }),
-    system: SYSTEM_PROMPT,
-    prompt: `Strategy name: ${input.name}
+  const userPrompt = `Strategy name: ${input.name}
 Source type: ${input.sourceType}
 
 Source material:
 """
 ${input.sourceContent.slice(0, 60000)}
-"""${answerBlock}${existingBlock}`,
-  });
+"""${answerBlock}${existingBlock}`;
+
+  let output: z.infer<typeof ExtractionSchema>;
+  try {
+    const result = await generateText({
+      model: gateway("google/gemini-3.5-flash"),
+      output: Output.object({ schema: ExtractionSchema }),
+      system: SYSTEM_PROMPT,
+      prompt: userPrompt,
+    });
+    output = result.output;
+  } catch (error) {
+    if (!NoObjectGeneratedError.isInstance(error)) throw error;
+    const parsed = parseLooseJson(error.text);
+    const safe = ExtractionSchema.partial().safeParse(parsed);
+    if (!safe.success) {
+      throw new Error("The model returned an unusable specification. Please try again.");
+    }
+    output = {
+      sections: safe.data.sections ?? {},
+      assumptions: safe.data.assumptions ?? [],
+      ambiguities: safe.data.ambiguities ?? [],
+      confidence: safe.data.confidence ?? [],
+      warnings: safe.data.warnings ?? [],
+      questions: safe.data.questions ?? [],
+    } as z.infer<typeof ExtractionSchema>;
+  }
+
 
   const confidence: Record<string, number> = {};
   for (const entry of output.confidence ?? []) {
