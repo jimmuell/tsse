@@ -307,6 +307,14 @@ export function BacktestPanel({
               onChange={(e) => setConfig({ ...config, slippage: Number(e.target.value) || 0 })}
             />
           </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="from">From date (optional)</Label>
+            <Input id="from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="to">To date (optional)</Label>
+            <Input id="to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          </div>
           <div className="flex items-end gap-6">
             <div className="flex items-center gap-2">
               <Switch
