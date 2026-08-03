@@ -201,24 +201,39 @@ ${input.sourceContent.slice(0, 60000)}
   });
 
   const questions = [...(output.questions ?? [])];
-  // Safety net: every unresolved ambiguity must surface as a question, even if
-  // the model skipped it while writing explanations/options.
+  // Safety net: every unresolved ambiguity must surface as a question, but never
+  // as a duplicate of one the model already asked. Ambiguity items are usually
+  // field paths ("position_sizing.sizing_formula"), so match on section/field
+  // tokens rather than raw substrings.
   const OPEN = new Set(["needs_user_input", "unknown", "cannot_determine"]);
+  const tokenize = (s: string) =>
+    s
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((t) => t.length > 2);
   for (const amb of output.ambiguities ?? []) {
     if (!OPEN.has(amb.status)) continue;
-    const covered = questions.some(
-      (q) =>
-        q.question.toLowerCase().includes(amb.item.toLowerCase()) ||
-        amb.item.toLowerCase().includes(q.question.toLowerCase().slice(0, 20)),
-    );
+    const [ambSection, ...rest] = amb.item.split(".");
+    const fieldTokens = tokenize(rest.join(" ") || amb.item);
+    const covered = questions.some((q) => {
+      if (q.section && ambSection && q.section.toLowerCase() === ambSection.toLowerCase()) {
+        return true;
+      }
+      const qTokens = new Set(tokenize(`${q.question} ${q.explanation ?? ""}`));
+      const hits = fieldTokens.filter((t) => qTokens.has(t)).length;
+      return fieldTokens.length > 0 && hits >= Math.min(2, fieldTokens.length);
+    });
     if (covered) continue;
     questions.push({
-      section: "",
+      section: ambSection || "",
       question: `How should "${amb.item}" be defined?`,
-      explanation: amb.note || "The source material does not state this, so it must be specified before the strategy can be implemented.",
+      explanation:
+        amb.note ||
+        "The source material does not state this, so it must be specified before the strategy can be implemented.",
       options: [],
     });
   }
+
 
   return { definition, questions };
 }
