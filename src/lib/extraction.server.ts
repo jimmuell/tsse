@@ -148,6 +148,9 @@ ${input.sourceContent.slice(0, 60000)}
       output: Output.object({ schema: ExtractionSchema }),
       system: SYSTEM_PROMPT,
       prompt: userPrompt,
+      temperature: 0,
+      topP: 1,
+      seed: 7,
     });
     output = result.output;
   } catch (error) {
