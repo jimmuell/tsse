@@ -25,8 +25,19 @@ import {
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { compileStrategy } from "@/lib/backtest/compile";
-import { runBacktest } from "@/lib/backtest/engine";
-import { DEFAULT_CONFIG, type Bar, type BacktestConfig, type BacktestResult } from "@/lib/backtest/types";
+import { runBacktestOnServer } from "@/lib/backtest.functions";
+import {
+  RULE_FIELDS,
+  applyOverrides,
+  initialOverrides,
+  overrideKeyOf,
+  type RuleOverrides,
+} from "@/lib/backtest/rules";
+import {
+  DEFAULT_CONFIG,
+  type BacktestConfig,
+  type ServerRunResult,
+} from "@/lib/backtest/types";
 import type { StrategyDefinition } from "@/lib/strategy-schema";
 
 function money(value: number): string {
