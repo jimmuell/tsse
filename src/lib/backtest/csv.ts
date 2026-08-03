@@ -1,10 +1,30 @@
 import type { Bar } from "./types";
 
+export type CsvRowError = {
+  /** 1-based line number in the source file. */
+  line: number;
+  reason: string;
+  raw: string;
+  cells: string[];
+  parsed: { time: string; open: string; high: string; low: string; close: string; volume: string };
+};
+
+export type CsvLayout = {
+  delimiter: string;
+  headerless: boolean;
+  columns: { time: number; timeOnly: number; open: number; high: number; low: number; close: number; volume: number };
+  totalRows: number;
+};
+
 export type CsvParseResult = {
   bars: Bar[];
   errors: string[];
   skipped: number;
+  rowErrors: CsvRowError[];
+  layout: CsvLayout | null;
 };
+
+const MAX_ROW_ERRORS = 10;
 
 const ALIASES: Record<string, string[]> = {
   t: ["time", "timestamp", "date", "datetime", "date_time", "opentime", "open_time", "bar_time"],
