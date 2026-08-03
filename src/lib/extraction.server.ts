@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { generateText, Output, NoObjectGeneratedError } from "ai";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
+import type { SourceMetadata } from "./source-metadata.server";
+
 
 function parseLooseJson(text: string | undefined): unknown {
   if (!text) return undefined;
@@ -83,9 +85,11 @@ Hard rules:
 - confidence is a list of { section, value } pairs, one per section key you populated, value 0-100.
 - questions are short clarifying questions the user must answer to remove remaining ambiguity. Ask at most 8, only where it genuinely changes execution.
 - Always return every section key and every field key, using an empty string when unknown.
+- Metadata provenance (strategy_name, author, source, version) must come from the provided provenance block or from the source material itself. NEVER write placeholder text such as "Unknown", "N/A", "Manual" or a made-up version number — leave the field empty and raise an ambiguity instead.
 
 Section schema:
 ${schemaDoc()}`;
+
 
 export type ExtractionResult = {
   definition: StrategyDefinition;
@@ -96,6 +100,7 @@ export async function runExtraction(input: {
   name: string;
   sourceType: string;
   sourceContent: string;
+  sourceMeta?: SourceMetadata | null;
   existing?: unknown;
   answers?: { question: string; answer: string }[];
 }): Promise<ExtractionResult> {
@@ -111,6 +116,16 @@ export async function runExtraction(input: {
           .join("\n\n")}`
       : "";
 
+  const meta = input.sourceMeta;
+  const provenanceBlock = meta
+    ? `\n\nAuthoritative provenance for the metadata section (use these values verbatim, do not paraphrase or invent):
+- source (URL): ${meta.canonicalUrl ?? meta.url}
+- publisher/platform: ${meta.provider}
+${meta.title ? `- original title: ${meta.title}\n` : ""}${
+        meta.author ? `- author / channel: ${meta.author}\n` : ""
+      }Set metadata.source to the URL above and metadata.author to the author/channel when given. Use the original title for metadata.strategy_name only if the user-supplied strategy name is empty or is itself the title. Leave metadata.version empty unless the source states a version.`
+    : "\n\nNo source URL was provided. Leave metadata.author and metadata.source empty unless the source material itself names them, and raise ambiguities for the missing provenance.";
+
   const existingBlock = input.existing
     ? `\n\nExisting partial specification (preserve any user-edited values unless an answer contradicts them):\n${JSON.stringify(
         input.existing,
@@ -118,12 +133,13 @@ export async function runExtraction(input: {
     : "";
 
   const userPrompt = `Strategy name: ${input.name}
-Source type: ${input.sourceType}
+Source type: ${input.sourceType}${provenanceBlock}
 
 Source material:
 """
 ${input.sourceContent.slice(0, 60000)}
 """${answerBlock}${existingBlock}`;
+
 
   let output: z.infer<typeof ExtractionSchema>;
   try {

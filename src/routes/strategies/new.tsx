@@ -41,8 +41,10 @@ function NewStrategy() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [sourceType, setSourceType] = useState<string>("manual");
+  const [sourceUrl, setSourceUrl] = useState("");
   const [sourceContent, setSourceContent] = useState("");
   const [busy, setBusy] = useState(false);
+
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth" });
@@ -57,6 +59,11 @@ function NewStrategy() {
       toast.error("Paste at least a few sentences of source material.");
       return;
     }
+    const url = sourceUrl.trim();
+    if (url && !/^https?:\/\/\S+\.\S+/i.test(url)) {
+      toast.error("Source URL must start with http:// or https://");
+      return;
+    }
     setBusy(true);
     try {
       const { data, error } = await supabase
@@ -65,6 +72,7 @@ function NewStrategy() {
           user_id: user.id,
           name: name.trim() || "Untitled strategy",
           source_type: sourceType,
+          source_url: url || null,
           source_content: sourceContent,
           definition: emptyDefinition() as never,
           status: manual ? "draft" : "extracting",
@@ -72,6 +80,7 @@ function NewStrategy() {
         .select("id")
         .single();
       if (error) throw error;
+
       navigate({
         to: "/strategies/$id",
         params: { id: data.id },
@@ -121,6 +130,25 @@ function NewStrategy() {
               </SelectContent>
             </Select>
           </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="source-url" className="text-xs">
+              Source URL (optional)
+            </Label>
+            <Input
+              id="source-url"
+              type="url"
+              value={sourceUrl}
+              placeholder="https://www.youtube.com/watch?v=…"
+              onChange={(e) => setSourceUrl(e.target.value)}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Paste the YouTube link and we'll pull the real title and channel into Metadata instead
+              of guessing.
+            </p>
+          </div>
+
+
 
           <div className="space-y-1.5">
             <Label htmlFor="source" className="text-xs">

@@ -1,8 +1,16 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Download, Loader2, Save, Sparkle, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Download,
+  Link as LinkIcon,
+  Loader2,
+  Save,
+  Sparkle,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { SectionCard } from "@/components/SectionCard";
@@ -65,7 +73,10 @@ function StrategyDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("strategies")
-        .select("id, name, source_type, source_content, definition, status, updated_at")
+        .select(
+          "id, name, source_type, source_url, source_content, definition, status, updated_at",
+        )
+
         .eq("id", id)
         .single();
       if (error) throw error;
@@ -116,13 +127,20 @@ function StrategyDetail() {
     [id, queryClient, runExtract],
   );
 
+  const autoAttempted = useRef(false);
+
   useEffect(() => {
-    if (extract && strategy && strategy.status === "extracting" && !extracting) {
+    if (!strategy || extracting || autoAttempted.current) return;
+    const pending = strategy.status === "extracting" || strategy.status === "failed";
+    if (!pending || !strategy.source_content?.trim()) return;
+    autoAttempted.current = true;
+    if (extract) {
       navigate({ to: "/strategies/$id", params: { id }, search: {}, replace: true });
-      void doExtract(false);
     }
+    void doExtract(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [extract, strategy?.status]);
+  }, [extract, strategy?.status, strategy?.id]);
+
 
   const validation = useMemo(
     () => (definition ? validateDefinition(definition) : null),
@@ -225,7 +243,19 @@ function StrategyDetail() {
             {strategy?.source_type} · {strategy?.status}
             {dirty ? " · unsaved changes" : ""}
           </p>
+          {strategy?.source_url ? (
+            <a
+              href={strategy.source_url}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="mt-1 inline-flex max-w-full items-center gap-1 truncate text-xs text-primary underline-offset-4 hover:underline"
+            >
+              <LinkIcon className="size-3 shrink-0" />
+              <span className="truncate">{strategy.source_url}</span>
+            </a>
+          ) : null}
         </div>
+
         <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
@@ -254,6 +284,20 @@ function StrategyDetail() {
           </Button>
         </div>
       </div>
+
+      {strategy?.status === "failed" && !extracting ? (
+        <div className="mt-6 flex flex-wrap items-center gap-3 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3">
+          <AlertTriangle className="size-4 text-destructive" />
+          <p className="min-w-0 flex-1 text-sm">
+            The last extraction failed, so this specification is still empty.
+          </p>
+          <Button size="sm" variant="outline" onClick={() => doExtract(false)}>
+            Retry extraction
+          </Button>
+        </div>
+      ) : null}
+
+
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0">
