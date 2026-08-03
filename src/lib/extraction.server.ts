@@ -102,7 +102,7 @@ export async function runExtraction(input: {
   const key = process.env["LOVABLE_API_KEY"];
   if (!key) throw new Error("Missing LOVABLE_API_KEY");
 
-  const gateway = createLovableAiGatewayProvider(key);
+  const gateway = createLovableAiGatewayProvider(key, { structuredOutputs: true });
 
   const answerBlock =
     input.answers && input.answers.length > 0
