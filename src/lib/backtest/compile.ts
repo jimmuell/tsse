@@ -220,9 +220,14 @@ export function compileStrategy(rawDefinition: unknown): CompiledStrategy {
     "position_sizing",
     "sizing_formula",
     "Sizing formula",
-    { required: false, vars: TRADE_VARS },
+    {
+      required: false,
+      vars: TRADE_VARS,
+      raw: statementFor(field(def, "position_sizing", "sizing_formula"), "long"),
+    },
     issues,
   );
+
   if (!sizing) {
     issues.push({
       level: "warning",
