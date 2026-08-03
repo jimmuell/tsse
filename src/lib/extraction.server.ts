@@ -234,6 +234,14 @@ ${input.sourceContent.slice(0, 60000)}
     });
   }
 
+  const seen = new Set<string>();
+  const deduped = questions.filter((q) => {
+    const key = q.question.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 
-  return { definition, questions };
+  return { definition, questions: deduped };
 }
+
