@@ -52,6 +52,11 @@ export const KNOWN_IDENTIFIERS = [
   "day_of_week",
   "hour",
   "minute",
+  "time",
+  "tick_size",
+  "poc",
+  "vah",
+  "val",
   "percent",
   "entry_price",
   "stop_price",
@@ -60,10 +65,12 @@ export const KNOWN_IDENTIFIERS = [
   "risk_per_unit",
   "capital",
   "equity",
+  "balance",
   "bars_in_trade",
   "quantity",
   "atr_value",
 ];
+
 
 export const KNOWN_FUNCTIONS = [...SERIES_FUNCTIONS, ...SCALAR_FUNCTIONS];
 
