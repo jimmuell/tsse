@@ -63,10 +63,11 @@ function compileField(
   section: string,
   key: string,
   label: string,
-  opts: { required: boolean; vars?: string[] },
+  opts: { required: boolean; vars?: string[]; raw?: string },
   issues: CompileIssue[],
 ): Node | null {
-  const raw = field(def, section, key);
+  const raw = (opts.raw ?? field(def, section, key)).trim();
+
   if (!raw) {
     if (opts.required) {
       issues.push({
