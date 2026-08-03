@@ -33,7 +33,11 @@ export const Route = createFileRoute("/datasets/")({
   component: DatasetsPage,
 });
 
+/** jsonb payload guard — keeps the most recent slice of very large intraday files. */
+const MAX_BARS = 200_000;
+
 function formatDate(value: string | null): string {
+
   if (!value) return "—";
   return new Date(value).toISOString().slice(0, 10);
 }
