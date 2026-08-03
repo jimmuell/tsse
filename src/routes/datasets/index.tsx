@@ -46,7 +46,10 @@ function DatasetsPage() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
+
   const [symbol, setSymbol] = useState("");
   const [timeframe, setTimeframe] = useState("");
 
