@@ -129,7 +129,7 @@ export function compileStrategy(rawDefinition: unknown): CompiledStrategy {
     "entry",
     "long_entry",
     "Long entry expression",
-    { required: true },
+    { required: true, raw: statementFor(field(def, "entry", "long_entry"), "long") },
     issues,
   );
   const shortEntry = compileField(
@@ -137,47 +137,83 @@ export function compileStrategy(rawDefinition: unknown): CompiledStrategy {
     "entry",
     "short_entry",
     "Short entry expression",
-    { required: false },
+    { required: false, raw: statementFor(field(def, "entry", "short_entry"), "short") },
     issues,
   );
 
-  const stopRaw = field(def, "stop_loss", "stop_formula");
+  const priceWords = ["entry_price", "open", "high", "low", "close", "price", "poc", "vah", "val"];
+  const stopRawAll = field(def, "stop_loss", "stop_formula");
+  const stopLongRaw = statementFor(stopRawAll, "long");
+  const stopShortRaw = statementFor(stopRawAll, "short");
   const stopNode = compileField(
     def,
     "stop_loss",
     "stop_formula",
     "Stop formula",
-    { required: true, vars: TRADE_VARS },
+    { required: true, vars: TRADE_VARS, raw: stopLongRaw },
     issues,
   );
+  const stopShortNode =
+    stopShortRaw && stopShortRaw !== stopLongRaw
+      ? compileField(
+          def,
+          "stop_loss",
+          "stop_formula",
+          "Short stop formula",
+          { required: false, vars: TRADE_VARS, raw: stopShortRaw },
+          issues,
+        )
+      : null;
+  const stopKind = (raw: string) =>
+    (referencesAny(raw, priceWords) ? "price" : "distance") as "price" | "distance";
   const stop = stopNode
     ? {
         node: stopNode,
-        kind: (referencesAny(stopRaw, ["entry_price", "open", "high", "low", "close", "price"])
-          ? "price"
-          : "distance") as "price" | "distance",
+        kind: stopKind(stopLongRaw),
+        ...(stopShortNode
+          ? { short: { node: stopShortNode, kind: stopKind(stopShortRaw) } }
+          : {}),
       }
     : null;
 
-  const targetRaw = field(def, "profit_target", "target_formula");
+  const targetRawAll = field(def, "profit_target", "target_formula");
+  const targetLongRaw = statementFor(targetRawAll, "long");
+  const targetShortRaw = statementFor(targetRawAll, "short");
   const targetNode = compileField(
     def,
     "profit_target",
     "target_formula",
     "Target formula",
-    { required: true, vars: TRADE_VARS },
+    { required: true, vars: TRADE_VARS, raw: targetLongRaw },
     issues,
   );
+  const targetShortNode =
+    targetShortRaw && targetShortRaw !== targetLongRaw
+      ? compileField(
+          def,
+          "profit_target",
+          "target_formula",
+          "Short target formula",
+          { required: false, vars: TRADE_VARS, raw: targetShortRaw },
+          issues,
+        )
+      : null;
+  const targetKind = (raw: string) =>
+    (referencesAny(raw, ["risk", "risk_per_unit"])
+      ? "r_multiple"
+      : referencesAny(raw, priceWords)
+        ? "price"
+        : "distance") as "price" | "distance" | "r_multiple";
   const target = targetNode
     ? {
         node: targetNode,
-        kind: (referencesAny(targetRaw, ["risk", "risk_per_unit"])
-          ? "r_multiple"
-          : referencesAny(targetRaw, ["entry_price", "open", "high", "low", "close", "price"])
-            ? "price"
-            : "distance") as "price" | "distance" | "r_multiple",
+        kind: targetKind(targetLongRaw),
+        ...(targetShortNode
+          ? { short: { node: targetShortNode, kind: targetKind(targetShortRaw) } }
+          : {}),
       }
     : null;
+
 
   const sizing = compileField(
     def,
