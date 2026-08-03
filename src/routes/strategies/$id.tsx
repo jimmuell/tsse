@@ -351,23 +351,59 @@ function StrategyDetail() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {openQuestions.map((q) => (
-                    <div key={q.id} className="rounded-md border border-border bg-card p-4">
-                      <p className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
-                        {q.section}
-                      </p>
-                      <p className="mt-1 text-sm font-medium">{q.question}</p>
-                      <Textarea
-                        rows={2}
-                        className="mt-3"
-                        placeholder="Answer precisely — numbers, operators, timeframes."
-                        value={answers[q.id] ?? ""}
-                        onChange={(e) =>
-                          setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
-                        }
-                      />
-                    </div>
-                  ))}
+                  {openQuestions.map((q) => {
+                    const options = Array.isArray(q.options)
+                      ? (q.options as { label?: string; answer?: string }[]).filter(
+                          (o) => o && typeof o.answer === "string" && o.answer.trim(),
+                        )
+                      : [];
+                    return (
+                      <div key={q.id} className="rounded-md border border-border bg-card p-4">
+                        <p className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+                          {q.section}
+                        </p>
+                        <p className="mt-1 text-sm font-medium">{q.question}</p>
+                        {q.explanation ? (
+                          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                            {q.explanation}
+                          </p>
+                        ) : null}
+                        {options.length > 0 ? (
+                          <div className="mt-3 space-y-2">
+                            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                              Suggested answers
+                            </p>
+                            {options.map((o, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() =>
+                                  setAnswers((prev) => ({ ...prev, [q.id]: o.answer as string }))
+                                }
+                                className="block w-full rounded-md border border-border bg-muted/40 p-3 text-left transition-colors hover:border-primary hover:bg-primary/5"
+                              >
+                                {o.label ? (
+                                  <span className="block text-xs font-semibold">{o.label}</span>
+                                ) : null}
+                                <span className="mt-1 block font-mono text-[11px] leading-relaxed text-muted-foreground">
+                                  {o.answer}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                        <Textarea
+                          rows={3}
+                          className="mt-3"
+                          placeholder="Answer precisely — numbers, operators, timeframes."
+                          value={answers[q.id] ?? ""}
+                          onChange={(e) =>
+                            setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
+                          }
+                        />
+                      </div>
+                    );
+                  })}
                   <Button onClick={submitAnswers} disabled={extracting} className="gap-1.5">
                     {extracting ? (
                       <Loader2 className="size-4 animate-spin" />
