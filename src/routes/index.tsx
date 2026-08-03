@@ -1,24 +1,126 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { FileCode2, Plus } from "lucide-react";
+import { AppShell } from "@/components/AppShell";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
-  component: Index,
+  head: () => ({
+    meta: [
+      { title: "Trading Strategy Specification Engine" },
+      {
+        name: "description",
+        content:
+          "Turn trading ideas from videos, PDFs and code into deterministic, machine-readable strategy specifications across 17 standardized sections.",
+      },
+      { property: "og:title", content: "Trading Strategy Specification Engine" },
+      {
+        property: "og:description",
+        content:
+          "Convert subjective trading ideas into unambiguous specs any developer can implement without the original source.",
+      },
+    ],
+  }),
+  component: Dashboard,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
-function Index() {
+function Dashboard() {
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && !user) navigate({ to: "/auth" });
+  }, [loading, user, navigate]);
+
+  const { data: strategies, isLoading } = useQuery({
+    queryKey: ["strategies", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("strategies")
+        .select("id, name, source_type, status, scores, updated_at")
+        .order("updated_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <AppShell email={user?.email ?? null}>
+      <div className="mb-8">
+        <h1 className="text-2xl font-semibold tracking-tight">Strategy specifications</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Every spec is scored for completeness, determinism and ambiguity before it can be exported.
+        </p>
+      </div>
+
+      {isLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} className="h-36 rounded-md" />
+          ))}
+        </div>
+      ) : !strategies || strategies.length === 0 ? (
+        <div className="rounded-md border border-dashed border-border bg-card px-6 py-16 text-center">
+          <FileCode2 className="mx-auto size-8 text-muted-foreground" />
+          <h2 className="mt-4 text-sm font-semibold">No specifications yet</h2>
+          <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
+            Paste a transcript, article, or indicator code and the engine will draft a 17-section
+            specification, then ask you about anything it could not determine.
+          </p>
+          <Button asChild className="mt-5 gap-1.5">
+            <Link to="/strategies/new">
+              <Plus className="size-4" />
+              Create your first strategy
+            </Link>
+          </Button>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {strategies.map((s) => {
+            const scores = (s.scores ?? {}) as Record<string, number>;
+            return (
+              <Link
+                key={s.id}
+                to="/strategies/$id"
+                params={{ id: s.id }}
+                className="group rounded-md border border-border bg-card p-4 transition-colors hover:border-primary/40"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <h2 className="text-sm font-semibold leading-snug group-hover:text-primary">
+                    {s.name}
+                  </h2>
+                  <Badge variant="outline" className="shrink-0 font-mono text-[10px] uppercase">
+                    {s.status}
+                  </Badge>
+                </div>
+                <p className="mt-1 font-mono text-[11px] text-muted-foreground">{s.source_type}</p>
+                <dl className="mt-4 grid grid-cols-3 gap-2 border-t border-border pt-3">
+                  {[
+                    ["Complete", scores['completeness']],
+                    ["Determin.", scores['determinism']],
+                    ["Ambiguity", scores['ambiguity']],
+                  ].map(([label, value]) => (
+                    <div key={label as string}>
+                      <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        {label}
+                      </dt>
+                      <dd className="font-mono text-sm font-semibold tabular-nums">
+                        {typeof value === "number" ? `${Math.round(value)}%` : "—"}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </AppShell>
   );
 }
