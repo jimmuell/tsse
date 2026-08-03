@@ -86,6 +86,7 @@ Hard rules:
 - questions are short clarifying questions the user must answer to remove remaining ambiguity. Ask at most 8, only where it genuinely changes execution.
 - Always return every section key and every field key, using an empty string when unknown.
 - Metadata provenance (strategy_name, author, source, version) must come from the provided provenance block or from the source material itself. NEVER write placeholder text such as "Unknown", "N/A", "Manual" or a made-up version number — leave the field empty and raise an ambiguity instead.
+- Be reproducible: for the same source material always produce the same wording, the same ordering of assumptions/ambiguities/questions (source order), and the same confidence numbers. Do not paraphrase differently between runs; quote or restate the source as literally as possible. Round every confidence value to the nearest 5.
 
 Section schema:
 ${schemaDoc()}`;
@@ -148,6 +149,9 @@ ${input.sourceContent.slice(0, 60000)}
       output: Output.object({ schema: ExtractionSchema }),
       system: SYSTEM_PROMPT,
       prompt: userPrompt,
+      temperature: 0,
+      topP: 1,
+      seed: 7,
     });
     output = result.output;
   } catch (error) {
