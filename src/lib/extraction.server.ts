@@ -90,7 +90,7 @@ Hard rules:
 - Assumption format: term = the vague phrase from the source; interpretation = the exact expression you substituted; confidence = 0-100.
 - Ambiguity statuses: resolved, needs_user_input, unknown, cannot_determine.
 - confidence is a list of { section, value } pairs, one per section key you populated, value 0-100.
-- questions are short clarifying questions the user must answer to remove remaining ambiguity. Ask at most 8, only where it genuinely changes execution. Each question MUST include:
+- questions are short clarifying questions the user must answer to remove remaining ambiguity. Coverage is mandatory: EVERY ambiguity whose status is needs_user_input, unknown or cannot_determine MUST have exactly one matching question, in the same order as the ambiguity list. Also ask a question for any required field you left empty and for any assumption with confidence below 80. Ask at most 8. Never drop a question to save space — the explanation and options must never reduce how many questions you ask. Each question MUST include:
   - explanation: 1-3 plain-English sentences saying what the source does and does not state, and why the answer changes execution. Written for a trader, not an engineer.
   - options: 2-3 concrete, ready-to-use candidate answers. label is a short name (e.g. "Standard 1% risk", "Mirror the video literally", "Confirm the symmetric rule"); answer is the exact text that could be pasted as the user's answer, written as a machine-evaluable rule with real numbers/expressions. Never write vague options.
 - Always return every section key and every field key, using an empty string when unknown.
@@ -166,6 +166,7 @@ ${input.sourceContent.slice(0, 60000)}
       temperature: 0,
       topP: 1,
       seed: 7,
+      maxOutputTokens: 16000,
     });
     output = result.output;
   } catch (error) {
@@ -199,5 +200,25 @@ ${input.sourceContent.slice(0, 60000)}
     warnings: output.warnings,
   });
 
-  return { definition, questions: output.questions ?? [] };
+  const questions = [...(output.questions ?? [])];
+  // Safety net: every unresolved ambiguity must surface as a question, even if
+  // the model skipped it while writing explanations/options.
+  const OPEN = new Set(["needs_user_input", "unknown", "cannot_determine"]);
+  for (const amb of output.ambiguities ?? []) {
+    if (!OPEN.has(amb.status)) continue;
+    const covered = questions.some(
+      (q) =>
+        q.question.toLowerCase().includes(amb.item.toLowerCase()) ||
+        amb.item.toLowerCase().includes(q.question.toLowerCase().slice(0, 20)),
+    );
+    if (covered) continue;
+    questions.push({
+      section: "",
+      question: `How should "${amb.item}" be defined?`,
+      explanation: amb.note || "The source material does not state this, so it must be specified before the strategy can be implemented.",
+      options: [],
+    });
+  }
+
+  return { definition, questions };
 }
