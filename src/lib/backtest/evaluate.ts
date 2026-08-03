@@ -263,16 +263,26 @@ export class EvalContext {
         return node.v;
       case "ident": {
         if (node.name in vars) return vars[node.name] as number;
+        if (node.name === "balance" && "equity" in vars) return vars["equity"] as number;
         if (node.name === "percent") return 0.01;
         if (node.name === "bar_index") return i;
+        if (node.name === "tick_size") return this.tickSize;
         const bar = this.bars[i];
         if (!bar) return NaN;
         if (node.name === "day_of_week") return new Date(bar.t).getUTCDay();
         if (node.name === "hour") return new Date(bar.t).getUTCHours();
         if (node.name === "minute") return new Date(bar.t).getUTCMinutes();
+        if (node.name === "time") {
+          const d = new Date(bar.t);
+          return d.getUTCHours() * 100 + d.getUTCMinutes();
+        }
+        if (node.name === "poc" || node.name === "vah" || node.name === "val") {
+          return (this.sessionProfile()[node.name][i] ?? NaN) as number;
+        }
         const pick = SERIES_FIELDS[node.name];
         if (pick) return pick(bar);
         throw new EvalError(`Unknown value "${node.name}"`);
+
       }
       case "offset": {
         const j = i - node.n;
