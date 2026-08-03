@@ -59,6 +59,11 @@ function NewStrategy() {
       toast.error("Paste at least a few sentences of source material.");
       return;
     }
+    const url = sourceUrl.trim();
+    if (url && !/^https?:\/\/\S+\.\S+/i.test(url)) {
+      toast.error("Source URL must start with http:// or https://");
+      return;
+    }
     setBusy(true);
     try {
       const { data, error } = await supabase
@@ -67,6 +72,7 @@ function NewStrategy() {
           user_id: user.id,
           name: name.trim() || "Untitled strategy",
           source_type: sourceType,
+          source_url: url || null,
           source_content: sourceContent,
           definition: emptyDefinition() as never,
           status: manual ? "draft" : "extracting",
@@ -74,6 +80,7 @@ function NewStrategy() {
         .select("id")
         .single();
       if (error) throw error;
+
       navigate({
         to: "/strategies/$id",
         params: { id: data.id },
