@@ -98,6 +98,7 @@ export async function runExtraction(input: {
   name: string;
   sourceType: string;
   sourceContent: string;
+  sourceMeta?: SourceMetadata | null;
   existing?: unknown;
   answers?: { question: string; answer: string }[];
 }): Promise<ExtractionResult> {
@@ -113,6 +114,16 @@ export async function runExtraction(input: {
           .join("\n\n")}`
       : "";
 
+  const meta = input.sourceMeta;
+  const provenanceBlock = meta
+    ? `\n\nAuthoritative provenance for the metadata section (use these values verbatim, do not paraphrase or invent):
+- source (URL): ${meta.canonicalUrl ?? meta.url}
+- publisher/platform: ${meta.provider}
+${meta.title ? `- original title: ${meta.title}\n` : ""}${
+        meta.author ? `- author / channel: ${meta.author}\n` : ""
+      }Set metadata.source to the URL above and metadata.author to the author/channel when given. Use the original title for metadata.strategy_name only if the user-supplied strategy name is empty or is itself the title. Leave metadata.version empty unless the source states a version.`
+    : "\n\nNo source URL was provided. Leave metadata.author and metadata.source empty unless the source material itself names them, and raise ambiguities for the missing provenance.";
+
   const existingBlock = input.existing
     ? `\n\nExisting partial specification (preserve any user-edited values unless an answer contradicts them):\n${JSON.stringify(
         input.existing,
@@ -120,12 +131,13 @@ export async function runExtraction(input: {
     : "";
 
   const userPrompt = `Strategy name: ${input.name}
-Source type: ${input.sourceType}
+Source type: ${input.sourceType}${provenanceBlock}
 
 Source material:
 """
 ${input.sourceContent.slice(0, 60000)}
 """${answerBlock}${existingBlock}`;
+
 
   let output: z.infer<typeof ExtractionSchema>;
   try {
