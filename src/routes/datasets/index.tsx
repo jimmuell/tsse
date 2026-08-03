@@ -109,7 +109,7 @@ function DatasetsPage() {
     setUploading(true);
     setReport(null);
     try {
-      const text = await file.text();
+      const text = await readImportText(file);
       const parsed = parseCsv(text);
       const { errors, skipped, rowErrors, layout } = parsed;
       let bars = parsed.bars;
