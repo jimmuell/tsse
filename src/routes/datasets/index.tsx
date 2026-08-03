@@ -68,14 +68,21 @@ function DatasetsPage() {
     setUploading(true);
     try {
       const text = await file.text();
-      const { bars, errors, skipped } = parseCsv(text);
+      const parsed = parseCsv(text);
+      const { errors, skipped } = parsed;
+      let bars = parsed.bars;
       if (bars.length === 0) {
         toast.error(errors[0] ?? "No usable rows found in that file.");
         return;
       }
+      let trimmed = 0;
+      if (bars.length > MAX_BARS) {
+        trimmed = bars.length - MAX_BARS;
+        bars = bars.slice(-MAX_BARS);
+      }
       const { error } = await supabase.from("datasets").insert({
         user_id: user.id,
-        name: file.name.replace(/\.csv$/i, ""),
+        name: file.name.replace(/\.(csv|txt)$/i, ""),
         symbol: symbol.trim() || "—",
         timeframe: timeframe.trim() || "—",
         bars: bars as unknown as never,
@@ -85,7 +92,9 @@ function DatasetsPage() {
       });
       if (error) throw error;
       toast.success(
-        `Imported ${bars.length.toLocaleString()} bars${skipped ? ` (${skipped} rows skipped)` : ""}`,
+        `Imported ${bars.length.toLocaleString()} bars${skipped ? ` (${skipped} rows skipped)` : ""}${
+          trimmed ? ` — kept the most recent ${MAX_BARS.toLocaleString()}, dropped ${trimmed.toLocaleString()} older bars` : ""
+        }`,
       );
       setSymbol("");
       setTimeframe("");
@@ -96,6 +105,7 @@ function DatasetsPage() {
       setUploading(false);
     }
   }
+
 
   async function remove(id: string) {
     const { error } = await supabase.from("datasets").delete().eq("id", id);
