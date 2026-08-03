@@ -392,23 +392,35 @@ function StrategyDetail() {
                             <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                               Suggested answers
                             </p>
-                            {options.map((o, idx) => (
-                              <button
-                                key={idx}
-                                type="button"
-                                onClick={() =>
-                                  setAnswers((prev) => ({ ...prev, [q.id]: o.answer as string }))
-                                }
-                                className="block w-full rounded-md border border-border bg-muted/40 p-3 text-left transition-colors hover:border-primary hover:bg-primary/5"
-                              >
-                                {o.label ? (
-                                  <span className="block text-xs font-semibold">{o.label}</span>
-                                ) : null}
-                                <span className="mt-1 block font-mono text-[11px] leading-relaxed text-muted-foreground">
-                                  {o.answer}
-                                </span>
-                              </button>
-                            ))}
+                            {options.map((o, idx) => {
+                              const selected = value.trim() === (o.answer ?? "").trim();
+                              return (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  aria-pressed={selected}
+                                  onClick={() =>
+                                    setAnswers((prev) => ({ ...prev, [q.id]: o.answer as string }))
+                                  }
+                                  className={`block w-full rounded-md border-2 p-3 text-left transition-colors ${
+                                    selected
+                                      ? "border-primary bg-primary/10 ring-2 ring-primary/20"
+                                      : "border-border bg-muted/40 hover:border-primary/60 hover:bg-primary/5"
+                                  }`}
+                                >
+                                  {o.label ? (
+                                    <span className="block text-xs font-semibold">{o.label}</span>
+                                  ) : null}
+                                  <span
+                                    className={`mt-1 block font-mono text-[11px] leading-relaxed ${
+                                      selected ? "text-foreground" : "text-muted-foreground"
+                                    }`}
+                                  >
+                                    {o.answer}
+                                  </span>
+                                </button>
+                              );
+                            })}
                           </div>
                         ) : null}
                         <Textarea
