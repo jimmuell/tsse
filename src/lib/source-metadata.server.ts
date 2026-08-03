@@ -1,11 +1,12 @@
 export type SourceMetadata = {
   url: string;
   provider: string;
-  title?: string;
-  author?: string;
-  canonicalUrl?: string;
-  thumbnail?: string;
+  title?: string | undefined;
+  author?: string | undefined;
+  canonicalUrl?: string | undefined;
+  thumbnail?: string | undefined;
 };
+
 
 export function parseYouTubeId(rawUrl: string): string | null {
   let url: URL;
