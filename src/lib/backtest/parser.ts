@@ -64,6 +64,10 @@ export function normalizeRuleText(raw: string): string {
 
 function tokenize(input: string): Token[] {
   const src = input
+    // clock literals like 09:30 or 16:00:00 become HHMM numbers (930, 1600)
+    .replace(/\b(\d{1,2}):(\d{2})(?::\d{2})?\b/g, (_m, h: string, m: string) =>
+      String(Number(h) * 100 + Number(m)),
+    )
     .replace(/\bcrosses?\s+above\b/gi, " crosses_above ")
     .replace(/\bcrosses?\s+below\b/gi, " crosses_below ")
     .replace(/\bcrosses?\s+over\b/gi, " crosses_above ")
@@ -76,6 +80,7 @@ function tokenize(input: string): Token[] {
     .replace(/\bis\s+below\b/gi, " < ")
     .replace(/\bis\s+equal\s+to\b/gi, " == ")
     .replace(/%/g, " percent ");
+
 
   const tokens: Token[] = [];
   let i = 0;

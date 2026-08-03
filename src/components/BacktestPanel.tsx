@@ -278,9 +278,10 @@ export function BacktestPanel({
           <div>
             <p className="text-sm font-medium">Executable rules</p>
             <p className="text-xs text-muted-foreground">
-              Rewrite the prose from the spec as expressions the engine can run. Fields: open, high,
-              low, close, volume. Indicators: sma, ema, atr, rsi, highest, lowest. Trade vars:
-              entry_price, risk, bars_in_trade.
+              Expressions the engine runs. Bars: open, high, low, close, volume. Indicators: sma,
+              ema, atr, rsi, highest, lowest. Prior-session volume profile: poc, vah, val. Also
+              time (24h, e.g. 09:30), tick_size, entry_price, risk, balance, bars_in_trade. Use
+              "long_x = …; short_x = …" for side-specific stops and targets.
             </p>
           </div>
           <Button variant="ghost" size="sm" onClick={resetRules}>

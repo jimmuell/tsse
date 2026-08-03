@@ -6,14 +6,41 @@ import type { CompileIssue } from "./types";
 export type CompiledStrategy = {
   longEntry: Node | null;
   shortEntry: Node | null;
-  stop: { node: Node; kind: "price" | "distance" } | null;
-  target: { node: Node; kind: "price" | "distance" | "r_multiple" } | null;
+  stop: { node: Node; kind: "price" | "distance"; short?: { node: Node; kind: "price" | "distance" } } | null;
+  target: {
+    node: Node;
+    kind: "price" | "distance" | "r_multiple";
+    short?: { node: Node; kind: "price" | "distance" | "r_multiple" };
+  } | null;
   sizing: Node | null;
   exitRule: Node | null;
   timeExitBars: number | null;
   issues: CompileIssue[];
   runnable: boolean;
 };
+
+/**
+ * Specs often write side-specific formulas as
+ * `long_stop = POC - 2 * tick_size; short_stop = POC + 2 * tick_size`.
+ * Pull out the statement for one side and drop the assignment target.
+ */
+function statementFor(raw: string, side: "long" | "short"): string {
+  const parts = raw
+    .split(/[;\n]+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (parts.length === 0) return "";
+  const other = side === "long" ? "short" : "long";
+  const sided = parts.filter((p) => new RegExp(`\\b${side}\\b`, "i").test(p));
+  const neutral = parts.filter(
+    (p) => !new RegExp(`\\b(long|short)\\b`, "i").test(p),
+  );
+  const chosen = sided.length > 0 ? sided : neutral.length > 0 ? neutral : parts.filter((p) => !new RegExp(`\\b${other}\\b`, "i").test(p));
+  const pick = (chosen[0] ?? parts[0]) as string;
+  // strip a leading "name =" assignment (but keep comparisons like ">=", "==")
+  return pick.replace(/^[A-Za-z_][A-Za-z0-9_ ]*\s=(?!=)\s*/, "").trim();
+}
+
 
 const TRADE_VARS = [
   "entry_price",
@@ -36,10 +63,11 @@ function compileField(
   section: string,
   key: string,
   label: string,
-  opts: { required: boolean; vars?: string[] },
+  opts: { required: boolean; vars?: string[]; raw?: string },
   issues: CompileIssue[],
 ): Node | null {
-  const raw = field(def, section, key);
+  const raw = (opts.raw ?? field(def, section, key)).trim();
+
   if (!raw) {
     if (opts.required) {
       issues.push({
@@ -73,7 +101,7 @@ function compileField(
       field: key,
       message: `${label} refers to ${unknown
         .map((u) => `"${u}"`)
-        .join(", ")}, which the engine does not know. Use bar fields (open, high, low, close, volume) or indicators (sma, ema, atr, rsi, highest, lowest).`,
+        .join(", ")}, which the engine does not know. Use bar fields (open, high, low, close, volume), indicators (sma, ema, atr, rsi, highest, lowest), session levels (poc, vah, val), or time, tick_size, risk, entry_price.`,
     });
     return null;
   }
@@ -101,7 +129,7 @@ export function compileStrategy(rawDefinition: unknown): CompiledStrategy {
     "entry",
     "long_entry",
     "Long entry expression",
-    { required: true },
+    { required: true, raw: statementFor(field(def, "entry", "long_entry"), "long") },
     issues,
   );
   const shortEntry = compileField(
@@ -109,56 +137,97 @@ export function compileStrategy(rawDefinition: unknown): CompiledStrategy {
     "entry",
     "short_entry",
     "Short entry expression",
-    { required: false },
+    { required: false, raw: statementFor(field(def, "entry", "short_entry"), "short") },
     issues,
   );
 
-  const stopRaw = field(def, "stop_loss", "stop_formula");
+  const priceWords = ["entry_price", "open", "high", "low", "close", "price", "poc", "vah", "val"];
+  const stopRawAll = field(def, "stop_loss", "stop_formula");
+  const stopLongRaw = statementFor(stopRawAll, "long");
+  const stopShortRaw = statementFor(stopRawAll, "short");
   const stopNode = compileField(
     def,
     "stop_loss",
     "stop_formula",
     "Stop formula",
-    { required: true, vars: TRADE_VARS },
+    { required: true, vars: TRADE_VARS, raw: stopLongRaw },
     issues,
   );
+  const stopShortNode =
+    stopShortRaw && stopShortRaw !== stopLongRaw
+      ? compileField(
+          def,
+          "stop_loss",
+          "stop_formula",
+          "Short stop formula",
+          { required: false, vars: TRADE_VARS, raw: stopShortRaw },
+          issues,
+        )
+      : null;
+  const stopKind = (raw: string) =>
+    (referencesAny(raw, priceWords) ? "price" : "distance") as "price" | "distance";
   const stop = stopNode
     ? {
         node: stopNode,
-        kind: (referencesAny(stopRaw, ["entry_price", "open", "high", "low", "close", "price"])
-          ? "price"
-          : "distance") as "price" | "distance",
+        kind: stopKind(stopLongRaw),
+        ...(stopShortNode
+          ? { short: { node: stopShortNode, kind: stopKind(stopShortRaw) } }
+          : {}),
       }
     : null;
 
-  const targetRaw = field(def, "profit_target", "target_formula");
+  const targetRawAll = field(def, "profit_target", "target_formula");
+  const targetLongRaw = statementFor(targetRawAll, "long");
+  const targetShortRaw = statementFor(targetRawAll, "short");
   const targetNode = compileField(
     def,
     "profit_target",
     "target_formula",
     "Target formula",
-    { required: true, vars: TRADE_VARS },
+    { required: true, vars: TRADE_VARS, raw: targetLongRaw },
     issues,
   );
+  const targetShortNode =
+    targetShortRaw && targetShortRaw !== targetLongRaw
+      ? compileField(
+          def,
+          "profit_target",
+          "target_formula",
+          "Short target formula",
+          { required: false, vars: TRADE_VARS, raw: targetShortRaw },
+          issues,
+        )
+      : null;
+  const targetKind = (raw: string) =>
+    (referencesAny(raw, ["risk", "risk_per_unit"])
+      ? "r_multiple"
+      : referencesAny(raw, priceWords)
+        ? "price"
+        : "distance") as "price" | "distance" | "r_multiple";
   const target = targetNode
     ? {
         node: targetNode,
-        kind: (referencesAny(targetRaw, ["risk", "risk_per_unit"])
-          ? "r_multiple"
-          : referencesAny(targetRaw, ["entry_price", "open", "high", "low", "close", "price"])
-            ? "price"
-            : "distance") as "price" | "distance" | "r_multiple",
+        kind: targetKind(targetLongRaw),
+        ...(targetShortNode
+          ? { short: { node: targetShortNode, kind: targetKind(targetShortRaw) } }
+          : {}),
       }
     : null;
+
 
   const sizing = compileField(
     def,
     "position_sizing",
     "sizing_formula",
     "Sizing formula",
-    { required: false, vars: TRADE_VARS },
+    {
+      required: false,
+      vars: TRADE_VARS,
+      raw: statementFor(field(def, "position_sizing", "sizing_formula"), "long"),
+    },
     issues,
   );
+
   if (!sizing) {
     issues.push({
       level: "warning",

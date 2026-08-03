@@ -52,6 +52,11 @@ export const KNOWN_IDENTIFIERS = [
   "day_of_week",
   "hour",
   "minute",
+  "time",
+  "tick_size",
+  "poc",
+  "vah",
+  "val",
   "percent",
   "entry_price",
   "stop_price",
@@ -60,14 +65,30 @@ export const KNOWN_IDENTIFIERS = [
   "risk_per_unit",
   "capital",
   "equity",
+  "balance",
   "bars_in_trade",
   "quantity",
   "atr_value",
 ];
 
+
 export const KNOWN_FUNCTIONS = [...SERIES_FUNCTIONS, ...SCALAR_FUNCTIONS];
 
 export type Vars = Record<string, number>;
+
+/** Smallest price increment seen in the data, used for tick-based rules. */
+function inferTickSize(close: number[]): number {
+  let min = Infinity;
+  const limit = Math.min(close.length, 5000);
+  for (let i = 1; i < limit; i++) {
+    const d = Math.abs((close[i] as number) - (close[i - 1] as number));
+    if (d > 1e-9 && d < min) min = d;
+  }
+  if (!Number.isFinite(min)) return 0.01;
+  return Math.round(min * 1e8) / 1e8;
+}
+
+
 
 /** Evaluates parsed rule trees against a bar series. Indicator arrays are cached. */
 export class EvalContext {
@@ -78,13 +99,92 @@ export class EvalContext {
   readonly close: number[];
   readonly volume: number[];
 
+  readonly tickSize: number;
+  private profile: { poc: number[]; vah: number[]; val: number[] } | null = null;
+
   constructor(readonly bars: Bar[]) {
     this.open = bars.map((b) => b.o);
     this.high = bars.map((b) => b.h);
     this.low = bars.map((b) => b.l);
     this.close = bars.map((b) => b.c);
     this.volume = bars.map((b) => b.v);
+    this.tickSize = inferTickSize(this.close);
   }
+
+  /**
+   * Prior-session volume profile. Bars are grouped by UTC calendar day, volume
+   * is spread across each bar's range in tick buckets, and every bar of a day
+   * sees the previous day's POC / value-area high / value-area low.
+   */
+  private sessionProfile(): { poc: number[]; vah: number[]; val: number[] } {
+    if (this.profile) return this.profile;
+    const n = this.bars.length;
+    const poc = new Array<number>(n).fill(NaN);
+    const vah = new Array<number>(n).fill(NaN);
+    const val = new Array<number>(n).fill(NaN);
+    const tick = this.tickSize;
+
+    let dayStart = 0;
+    type Levels = { poc: number; vah: number; val: number };
+    const state: { prior: Levels | null } = { prior: null };
+    const dayKey = (t: number) => Math.floor(t / 86_400_000);
+
+    const flush = (from: number, to: number) => {
+      const buckets = new Map<number, number>();
+      for (let i = from; i < to; i++) {
+        const bar = this.bars[i] as Bar;
+        const lo = Math.round(bar.l / tick);
+        const hi = Math.round(bar.h / tick);
+        const steps = Math.max(1, hi - lo + 1);
+        const share = (bar.v || 1) / steps;
+        for (let b = lo; b <= hi; b++) buckets.set(b, (buckets.get(b) ?? 0) + share);
+      }
+      if (buckets.size === 0) return;
+      const sorted = [...buckets.entries()].sort((a, b) => a[0] - b[0]);
+      const total = sorted.reduce((s, e) => s + e[1], 0);
+      let pocIdx = 0;
+      for (let i = 1; i < sorted.length; i++) {
+        if ((sorted[i] as [number, number])[1] > (sorted[pocIdx] as [number, number])[1]) pocIdx = i;
+      }
+      let lo = pocIdx;
+      let hi = pocIdx;
+      let covered = (sorted[pocIdx] as [number, number])[1];
+      while (covered < total * 0.7 && (lo > 0 || hi < sorted.length - 1)) {
+        const below = lo > 0 ? (sorted[lo - 1] as [number, number])[1] : -1;
+        const above = hi < sorted.length - 1 ? (sorted[hi + 1] as [number, number])[1] : -1;
+        if (above >= below) {
+          hi += 1;
+          covered += above;
+        } else {
+          lo -= 1;
+          covered += below;
+        }
+      }
+      state.prior = {
+        poc: (sorted[pocIdx] as [number, number])[0] * tick,
+        vah: (sorted[hi] as [number, number])[0] * tick,
+        val: (sorted[lo] as [number, number])[0] * tick,
+      };
+    };
+
+    for (let i = 0; i < n; i++) {
+      const t = (this.bars[i] as Bar).t;
+      if (i > 0 && dayKey(t) !== dayKey((this.bars[i - 1] as Bar).t)) {
+        flush(dayStart, i);
+        dayStart = i;
+      }
+      const prior = state.prior;
+      if (prior) {
+        poc[i] = prior.poc;
+        vah[i] = prior.vah;
+        val[i] = prior.val;
+      }
+    }
+
+    this.profile = { poc, vah, val };
+    return this.profile;
+  }
+
 
   private constArg(node: Node, fnName: string): number {
     if (node.k === "num") return node.v;
@@ -163,16 +263,26 @@ export class EvalContext {
         return node.v;
       case "ident": {
         if (node.name in vars) return vars[node.name] as number;
+        if (node.name === "balance" && "equity" in vars) return vars["equity"] as number;
         if (node.name === "percent") return 0.01;
         if (node.name === "bar_index") return i;
+        if (node.name === "tick_size") return this.tickSize;
         const bar = this.bars[i];
         if (!bar) return NaN;
         if (node.name === "day_of_week") return new Date(bar.t).getUTCDay();
         if (node.name === "hour") return new Date(bar.t).getUTCHours();
         if (node.name === "minute") return new Date(bar.t).getUTCMinutes();
+        if (node.name === "time") {
+          const d = new Date(bar.t);
+          return d.getUTCHours() * 100 + d.getUTCMinutes();
+        }
+        if (node.name === "poc" || node.name === "vah" || node.name === "val") {
+          return (this.sessionProfile()[node.name][i] ?? NaN) as number;
+        }
         const pick = SERIES_FIELDS[node.name];
         if (pick) return pick(bar);
         throw new EvalError(`Unknown value "${node.name}"`);
+
       }
       case "offset": {
         const j = i - node.n;
