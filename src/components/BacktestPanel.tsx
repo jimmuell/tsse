@@ -356,6 +356,18 @@ export function BacktestPanel({
 
       {result ? (
         <>
+          <p className="text-xs text-muted-foreground">
+            {result.barsUsed.toLocaleString()} bars simulated
+            {result.rangeStart && result.rangeEnd
+              ? ` · ${new Date(result.rangeStart).toISOString().slice(0, 10)} → ${new Date(
+                  result.rangeEnd,
+                ).toISOString().slice(0, 10)}`
+              : ""}
+            {result.barsTruncated ? " · range capped at 1,000,000 bars — narrow the dates to test an earlier window" : ""}
+            {result.tradesTruncated
+              ? ` · showing first ${result.trades.length.toLocaleString()} of ${result.totalTrades.toLocaleString()} trades`
+              : ""}
+          </p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Stat
               label="Net P&L"
