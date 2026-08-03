@@ -92,7 +92,7 @@ function StrategyDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("strategy_questions")
-        .select("id, section, question, answer")
+        .select("id, section, question, answer, explanation, options")
         .eq("strategy_id", id)
         .order("created_at");
       if (error) throw error;
