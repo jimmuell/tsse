@@ -219,6 +219,10 @@ function DatasetsPage() {
           the most recent {MAX_BARS.toLocaleString()} bars.
         </p>
 
+        {report ? <ImportErrorPanel report={report} onDismiss={() => setReport(null)} /> : null}
+
+
+
         {uploading ? (
           <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" /> Importing…
