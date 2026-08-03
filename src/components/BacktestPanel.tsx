@@ -402,7 +402,6 @@ export function BacktestPanel({
 
         <div className="mt-5 flex items-center gap-3">
           <Button onClick={() => void run()} disabled={running || !compiled.runnable} className="gap-1.5">
-
             {running ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
             Run backtest
           </Button>
@@ -412,6 +411,11 @@ export function BacktestPanel({
               Manage data
             </Link>
           </Button>
+          {!compiled.runnable ? (
+            <p className="text-xs text-muted-foreground">
+              Fix the highlighted rules above to enable the run.
+            </p>
+          ) : null}
         </div>
       </div>
 
