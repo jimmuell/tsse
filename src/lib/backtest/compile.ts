@@ -6,14 +6,41 @@ import type { CompileIssue } from "./types";
 export type CompiledStrategy = {
   longEntry: Node | null;
   shortEntry: Node | null;
-  stop: { node: Node; kind: "price" | "distance" } | null;
-  target: { node: Node; kind: "price" | "distance" | "r_multiple" } | null;
+  stop: { node: Node; kind: "price" | "distance"; short?: { node: Node; kind: "price" | "distance" } } | null;
+  target: {
+    node: Node;
+    kind: "price" | "distance" | "r_multiple";
+    short?: { node: Node; kind: "price" | "distance" | "r_multiple" };
+  } | null;
   sizing: Node | null;
   exitRule: Node | null;
   timeExitBars: number | null;
   issues: CompileIssue[];
   runnable: boolean;
 };
+
+/**
+ * Specs often write side-specific formulas as
+ * `long_stop = POC - 2 * tick_size; short_stop = POC + 2 * tick_size`.
+ * Pull out the statement for one side and drop the assignment target.
+ */
+function statementFor(raw: string, side: "long" | "short"): string {
+  const parts = raw
+    .split(/[;\n]+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (parts.length === 0) return "";
+  const other = side === "long" ? "short" : "long";
+  const sided = parts.filter((p) => new RegExp(`\\b${side}\\b`, "i").test(p));
+  const neutral = parts.filter(
+    (p) => !new RegExp(`\\b(long|short)\\b`, "i").test(p),
+  );
+  const chosen = sided.length > 0 ? sided : neutral.length > 0 ? neutral : parts.filter((p) => !new RegExp(`\\b${other}\\b`, "i").test(p));
+  const pick = (chosen[0] ?? parts[0]) as string;
+  // strip a leading "name =" assignment (but keep comparisons like ">=", "==")
+  return pick.replace(/^[A-Za-z_][A-Za-z0-9_ ]*\s=(?!=)\s*/, "").trim();
+}
+
 
 const TRADE_VARS = [
   "entry_price",
