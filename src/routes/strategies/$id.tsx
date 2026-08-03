@@ -194,13 +194,16 @@ function StrategyDetail() {
   }
 
   async function submitAnswers() {
-    const entries = Object.entries(answers).filter(([, v]) => v.trim());
-    if (entries.length === 0) {
-      toast.error("Answer at least one question first.");
+    const all = questionsQuery.data ?? [];
+    const changed = all
+      .map((q) => ({ id: q.id, value: (answers[q.id] ?? q.answer ?? "").trim(), prev: q.answer ?? "" }))
+      .filter((q) => q.value && q.value !== q.prev);
+    if (changed.length === 0) {
+      toast.error("Answer or change at least one question first.");
       return;
     }
-    for (const [questionId, answer] of entries) {
-      await supabase.from("strategy_questions").update({ answer }).eq("id", questionId);
+    for (const { id: questionId, value } of changed) {
+      await supabase.from("strategy_questions").update({ answer: value }).eq("id", questionId);
     }
     setAnswers({});
     await doExtract(true);
@@ -248,7 +251,8 @@ function StrategyDetail() {
     );
   }
 
-  const openQuestions = (questionsQuery.data ?? []).filter((q) => !q.answer);
+  const allQuestions = questionsQuery.data ?? [];
+  const openQuestions = allQuestions.filter((q) => !q.answer);
 
   return (
     <AppShell email={user?.email ?? null}>
@@ -341,7 +345,7 @@ function StrategyDetail() {
             <TabsContent value="questions" className="mt-4">
               {extracting ? (
                 <p className="text-sm text-muted-foreground">Working…</p>
-              ) : openQuestions.length === 0 ? (
+              ) : allQuestions.length === 0 ? (
                 <div className="rounded-md border border-dashed border-border bg-card p-8 text-center">
                   <p className="text-sm font-medium">No open questions</p>
                   <p className="mt-1 text-xs text-muted-foreground">
@@ -351,17 +355,32 @@ function StrategyDetail() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {openQuestions.map((q) => {
+                  {allQuestions.map((q) => {
                     const options = Array.isArray(q.options)
                       ? (q.options as { label?: string; answer?: string }[]).filter(
                           (o) => o && typeof o.answer === "string" && o.answer.trim(),
                         )
                       : [];
+                    const value = answers[q.id] ?? q.answer ?? "";
+                    const edited = !!q.answer && value.trim() !== q.answer;
                     return (
                       <div key={q.id} className="rounded-md border border-border bg-card p-4">
-                        <p className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
-                          {q.section}
-                        </p>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+                            {q.section}
+                          </p>
+                          <span
+                            className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide ${
+                              edited
+                                ? "bg-primary/10 text-primary"
+                                : q.answer
+                                  ? "bg-muted text-muted-foreground"
+                                  : "bg-destructive/10 text-destructive"
+                            }`}
+                          >
+                            {edited ? "edited" : q.answer ? "answered" : "open"}
+                          </span>
+                        </div>
                         <p className="mt-1 text-sm font-medium">{q.question}</p>
                         {q.explanation ? (
                           <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
@@ -396,11 +415,29 @@ function StrategyDetail() {
                           rows={3}
                           className="mt-3"
                           placeholder="Answer precisely — numbers, operators, timeframes."
-                          value={answers[q.id] ?? ""}
+                          value={value}
                           onChange={(e) =>
                             setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
                           }
                         />
+                        {q.answer ? (
+                          <div className="mt-2 flex justify-end">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={!edited}
+                              onClick={() =>
+                                setAnswers((prev) => {
+                                  const next = { ...prev };
+                                  delete next[q.id];
+                                  return next;
+                                })
+                              }
+                            >
+                              Revert
+                            </Button>
+                          </div>
+                        ) : null}
                       </div>
                     );
                   })}
@@ -410,11 +447,12 @@ function StrategyDetail() {
                     ) : (
                       <Sparkle className="size-4" />
                     )}
-                    Apply answers and refine
+                    Apply answers and re-run
                   </Button>
                 </div>
               )}
             </TabsContent>
+
 
             <TabsContent value="source" className="mt-4">
               <pre className="max-h-[600px] overflow-auto whitespace-pre-wrap rounded-md border border-border bg-card p-4 font-mono text-xs leading-relaxed">
