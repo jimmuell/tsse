@@ -44,9 +44,16 @@ function normalizeHeader(h: string): string {
 }
 
 function parseTime(raw: string, dateOnly?: string): number | null {
-  const value = dateOnly ? `${dateOnly} ${raw}` : raw;
+  let value = raw.trim();
+  if (dateOnly) {
+    let time = value;
+    // "0930" / "093000" style time columns
+    if (/^\d{4}$/.test(time)) time = `${time.slice(0, 2)}:${time.slice(2)}`;
+    else if (/^\d{6}$/.test(time)) time = `${time.slice(0, 2)}:${time.slice(2, 4)}:${time.slice(4)}`;
+    value = `${dateOnly.trim()} ${time}`;
+  }
   const numeric = Number(value);
-  if (!Number.isNaN(numeric) && /^\d+$/.test(value.trim())) {
+  if (!Number.isNaN(numeric) && /^\d+$/.test(value)) {
     // seconds vs milliseconds
     return numeric > 1e12 ? numeric : numeric * 1000;
   }
@@ -56,14 +63,18 @@ function parseTime(raw: string, dateOnly?: string): number | null {
   return Number.isNaN(fallback) ? null : fallback;
 }
 
-/** Parses OHLCV CSV text into sorted bars, tolerating common column namings. */
+function looksNumeric(s: string): boolean {
+  return s !== "" && Number.isFinite(Number(s));
+}
+
+/** Parses OHLCV CSV/TXT text into sorted bars, tolerating common column namings and headerless exports. */
 export function parseCsv(text: string): CsvParseResult {
   const errors: string[] = [];
   const lines = text
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter((l) => l.length > 0);
-  if (lines.length < 2) return { bars: [], errors: ["The file has no data rows."], skipped: 0 };
+  if (lines.length < 1) return { bars: [], errors: ["The file has no data rows."], skipped: 0 };
 
   const headerLine = lines[0] as string;
   const delimiter = [",", ";", "\t", "|"]
@@ -74,39 +85,62 @@ export function parseCsv(text: string): CsvParseResult {
   const indexOf = (key: keyof typeof ALIASES): number =>
     headers.findIndex((h) => (ALIASES[key] as string[]).includes(h));
 
-  const iT = indexOf("t");
-  const iO = indexOf("o");
-  const iH = indexOf("h");
-  const iL = indexOf("l");
-  const iC = indexOf("c");
-  const iV = indexOf("v");
-  const iTimeOnly = headers.findIndex((h) => h === "time" && iT !== headers.indexOf("time"));
+  let iT = indexOf("t");
+  let iO = indexOf("o");
+  let iH = indexOf("h");
+  let iL = indexOf("l");
+  let iC = indexOf("c");
+  let iV = indexOf("v");
+  let iTimeOnly = -1;
+  let firstDataRow = 1;
 
-  const missing: string[] = [];
-  if (iT < 0) missing.push("date/time");
-  if (iO < 0) missing.push("open");
-  if (iH < 0) missing.push("high");
-  if (iL < 0) missing.push("low");
-  if (iC < 0) missing.push("close");
-  if (missing.length > 0) {
+  const headerless = iO < 0 || iH < 0 || iL < 0 || iC < 0;
+  if (headerless) {
+    // Headerless exports (Kinetick / FirstRate style):
+    // date,time,o,h,l,c,v  |  datetime,o,h,l,c,v  |  date,o,h,l,c,v
+    const cells = splitLine(headerLine, delimiter);
+    const numericTail = cells.filter(looksNumeric).length;
+    if (cells.length < 5 || numericTail < 4) {
+      return {
+        bars: [],
+        errors: [
+          "Could not read this file. Expected columns like date, open, high, low, close, volume — with or without a header row.",
+        ],
+        skipped: 0,
+      };
+    }
+    firstDataRow = 0;
+    const dateThenTime = !looksNumeric(cells[0] as string) && /^\d{1,2}:?\d{2}/.test(cells[1] ?? "");
+    if (dateThenTime) {
+      iT = 0;
+      iTimeOnly = 1;
+      iO = 2;
+    } else {
+      iT = 0;
+      iO = 1;
+    }
+    iH = iO + 1;
+    iL = iO + 2;
+    iC = iO + 3;
+    iV = cells.length > iO + 4 ? iO + 4 : -1;
+  } else if (iT < 0) {
     return {
       bars: [],
-      errors: [
-        `Missing required column(s): ${missing.join(", ")}. Expected headers like date, open, high, low, close, volume.`,
-      ],
+      errors: ["Missing required column: date/time."],
       skipped: 0,
     };
+  } else {
+    const timeCol = headers.findIndex((h) => h === "time");
+    if (timeCol >= 0 && timeCol !== iT) iTimeOnly = timeCol;
   }
 
   const bars: Bar[] = [];
   let skipped = 0;
-  for (let i = 1; i < lines.length; i++) {
+  for (let i = firstDataRow; i < lines.length; i++) {
     const cells = splitLine(lines[i] as string, delimiter);
     const rawTime = cells[iT] ?? "";
-    const t = parseTime(
-      iTimeOnly > 0 ? (cells[iTimeOnly] ?? "") : rawTime,
-      iTimeOnly > 0 ? rawTime : undefined,
-    );
+    const t =
+      iTimeOnly >= 0 ? parseTime(cells[iTimeOnly] ?? "", rawTime) : parseTime(rawTime);
     const o = Number(cells[iO]);
     const h = Number(cells[iH]);
     const l = Number(cells[iL]);
@@ -123,3 +157,4 @@ export function parseCsv(text: string): CsvParseResult {
   bars.sort((a, b) => a.t - b.t);
   return { bars, errors, skipped };
 }
+

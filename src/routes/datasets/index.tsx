@@ -33,7 +33,11 @@ export const Route = createFileRoute("/datasets/")({
   component: DatasetsPage,
 });
 
+/** jsonb payload guard — keeps the most recent slice of very large intraday files. */
+const MAX_BARS = 200_000;
+
 function formatDate(value: string | null): string {
+
   if (!value) return "—";
   return new Date(value).toISOString().slice(0, 10);
 }
@@ -68,14 +72,21 @@ function DatasetsPage() {
     setUploading(true);
     try {
       const text = await file.text();
-      const { bars, errors, skipped } = parseCsv(text);
+      const parsed = parseCsv(text);
+      const { errors, skipped } = parsed;
+      let bars = parsed.bars;
       if (bars.length === 0) {
         toast.error(errors[0] ?? "No usable rows found in that file.");
         return;
       }
+      let trimmed = 0;
+      if (bars.length > MAX_BARS) {
+        trimmed = bars.length - MAX_BARS;
+        bars = bars.slice(-MAX_BARS);
+      }
       const { error } = await supabase.from("datasets").insert({
         user_id: user.id,
-        name: file.name.replace(/\.csv$/i, ""),
+        name: file.name.replace(/\.(csv|txt)$/i, ""),
         symbol: symbol.trim() || "—",
         timeframe: timeframe.trim() || "—",
         bars: bars as unknown as never,
@@ -85,7 +96,9 @@ function DatasetsPage() {
       });
       if (error) throw error;
       toast.success(
-        `Imported ${bars.length.toLocaleString()} bars${skipped ? ` (${skipped} rows skipped)` : ""}`,
+        `Imported ${bars.length.toLocaleString()} bars${skipped ? ` (${skipped} rows skipped)` : ""}${
+          trimmed ? ` — kept the most recent ${MAX_BARS.toLocaleString()}, dropped ${trimmed.toLocaleString()} older bars` : ""
+        }`,
       );
       setSymbol("");
       setTimeframe("");
@@ -96,6 +109,7 @@ function DatasetsPage() {
       setUploading(false);
     }
   }
+
 
   async function remove(id: string) {
     const { error } = await supabase.from("datasets").delete().eq("id", id);
@@ -138,11 +152,11 @@ function DatasetsPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="csv">CSV file</Label>
+            <Label htmlFor="csv">CSV / TXT file</Label>
             <Input
               id="csv"
               type="file"
-              accept=".csv,text/csv"
+              accept=".csv,.txt,text/csv,text/plain"
               disabled={uploading}
               onChange={(e) => {
                 const file = e.target.files?.[0];
@@ -153,7 +167,10 @@ function DatasetsPage() {
           </div>
         </div>
         <p className="mt-3 font-mono text-xs text-muted-foreground">
-          Expected columns: date/time, open, high, low, close, volume (optional).
+          date/time, open, high, low, close, volume — header row optional. Headerless exports
+          (date,time,o,h,l,c,v) from Kinetick / FirstRate work as-is. Very large intraday files keep
+          the most recent {MAX_BARS.toLocaleString()} bars.
+
         </p>
         {uploading ? (
           <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
