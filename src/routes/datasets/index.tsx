@@ -8,10 +8,12 @@ import { ImportErrorPanel, type ImportReport } from "@/components/ImportErrorPan
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { parseCsv } from "@/lib/backtest/csv";
+import { parseCsv, type CsvLayout, type CsvRowError } from "@/lib/backtest/csv";
+import type { Bar } from "@/lib/backtest/types";
 
 export const Route = createFileRoute("/datasets/")({
   head: () => ({
@@ -34,45 +36,23 @@ export const Route = createFileRoute("/datasets/")({
   component: DatasetsPage,
 });
 
-/** jsonb payload guard — keeps the most recent slice of very large intraday files. */
-const MAX_BARS = 200_000;
-
-/** Reading a multi-GB file whole fails in the browser; only the tail is ever kept anyway. */
-const MAX_READ_BYTES = 48 * 1024 * 1024;
-
-/**
- * Reads a file as text. Huge files are read as a head chunk (to keep any header row)
- * plus the most recent tail bytes, avoiding browser "file could not be read" failures.
- */
-async function readImportText(file: File): Promise<string> {
-  async function slice(blob: Blob): Promise<string> {
-    try {
-      return await blob.text();
-    } catch {
-      throw new Error(
-        "The browser could not read that file. It may have moved, or it is too large to open — try re-selecting it, or split it into a smaller file.",
-      );
-    }
-  }
-
-  if (file.size <= MAX_READ_BYTES) return slice(file);
-
-  const headText = await slice(file.slice(0, 64 * 1024));
-  const firstLine = headText.split(/\r?\n/, 1)[0] ?? "";
-  const hasHeader = /[a-z]{2,}/i.test(firstLine.replace(/[^\x20-\x7e]/g, ""));
-
-  const tailText = await slice(file.slice(file.size - MAX_READ_BYTES));
-  // Drop the first (likely partial) line of the tail chunk.
-  const tailBody = tailText.slice(tailText.indexOf("\n") + 1);
-  return hasHeader ? `${firstLine}\n${tailBody}` : tailBody;
-}
+/** Bytes read from the file per pass — small enough for any browser, big enough to be fast. */
+const READ_CHUNK = 8 * 1024 * 1024;
+/** Bars sent to the database per request. */
+const INSERT_BATCH = 20_000;
 
 function formatDate(value: string | null): string {
-
   if (!value) return "—";
   return new Date(value).toISOString().slice(0, 10);
 }
 
+function looksLikeHeader(line: string): boolean {
+  const cells = line.split(/[,;\t|]/);
+  const numeric = cells.filter((c) => c.trim() !== "" && Number.isFinite(Number(c))).length;
+  return numeric < 4;
+}
+
+type Progress = { bytes: number; total: number; rows: number } | null;
 
 function DatasetsPage() {
   const { user, loading } = useAuth();
@@ -81,8 +61,8 @@ function DatasetsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState<Progress>(null);
   const [report, setReport] = useState<ImportReport | null>(null);
-
 
   const [symbol, setSymbol] = useState("");
   const [timeframe, setTimeframe] = useState("");
@@ -104,87 +84,160 @@ function DatasetsPage() {
     },
   });
 
+  /**
+   * Reads the file in slices, parses each slice, and streams bars into the
+   * dataset_bars table in batches — so a multi-gigabyte export imports in full.
+   */
   async function handleFile(file: File) {
     if (!user) return;
     setUploading(true);
     setReport(null);
+    setProgress({ bytes: 0, total: file.size, rows: 0 });
+
+    const name = file.name.replace(/\.(csv|txt)$/i, "");
+    let datasetId: string | null = null;
+    let imported = 0;
+    let skipped = 0;
+    let firstT: number | null = null;
+    let lastT: number | null = null;
+    let layout: CsvLayout | null = null;
+    const rowErrors: CsvRowError[] = [];
+
     try {
-      const text = await readImportText(file);
-      const parsed = parseCsv(text);
-      const { errors, skipped, rowErrors, layout } = parsed;
-      let bars = parsed.bars;
-      if (bars.length === 0) {
+      const { data: created, error: createError } = await supabase
+        .from("datasets")
+        .insert({
+          user_id: user.id,
+          name,
+          symbol: symbol.trim() || "—",
+          timeframe: timeframe.trim() || "—",
+          storage: "rows",
+          bars: [] as unknown as never,
+          bar_count: 0,
+        })
+        .select("id")
+        .single();
+      if (createError || !created) throw new Error(createError?.message ?? "Could not create the data set.");
+      datasetId = created.id;
+
+      let offset = 0;
+      let leftover = "";
+      let header: string | null = null;
+      let buffer: Bar[] = [];
+
+      const flush = async (force: boolean) => {
+        if (buffer.length === 0 || (!force && buffer.length < INSERT_BATCH)) return;
+        const rows = buffer.map((b) => ({ dataset_id: datasetId as string, ...b }));
+        buffer = [];
+        const { error } = await supabase
+          .from("dataset_bars")
+          .upsert(rows, { onConflict: "dataset_id,t", ignoreDuplicates: true });
+        if (error) throw new Error(error.message);
+        imported += rows.length;
+        setProgress((p) => (p ? { ...p, rows: imported } : p));
+      };
+
+      while (offset < file.size) {
+        const end = Math.min(offset + READ_CHUNK, file.size);
+        let text: string;
+        try {
+          text = await file.slice(offset, end).text();
+        } catch {
+          throw new Error(
+            "The browser could not read that file — it may have moved or been changed while importing.",
+          );
+        }
+        offset = end;
+
+        let body = leftover + text;
+        if (offset < file.size) {
+          const cut = body.lastIndexOf("\n");
+          leftover = cut >= 0 ? body.slice(cut + 1) : body;
+          body = cut >= 0 ? body.slice(0, cut) : "";
+        } else {
+          leftover = "";
+        }
+        if (!body.trim()) {
+          setProgress((p) => (p ? { ...p, bytes: offset } : p));
+          continue;
+        }
+
+        if (header === null) {
+          const firstLine = body.split(/\r?\n/, 1)[0] ?? "";
+          header = looksLikeHeader(firstLine) ? firstLine : "";
+        } else if (header) {
+          body = `${header}\n${body}`;
+        }
+
+        const parsed = parseCsv(body);
+        if (!layout) layout = parsed.layout;
+        skipped += parsed.skipped;
+        for (const e of parsed.rowErrors) if (rowErrors.length < 10) rowErrors.push(e);
+
+        for (const bar of parsed.bars) {
+          if (firstT === null || bar.t < firstT) firstT = bar.t;
+          if (lastT === null || bar.t > lastT) lastT = bar.t;
+          buffer.push(bar);
+        }
+        await flush(false);
+        setProgress((p) => (p ? { ...p, bytes: offset } : p));
+      }
+
+      if (leftover.trim()) {
+        const parsed = parseCsv(header ? `${header}\n${leftover}` : leftover);
+        for (const bar of parsed.bars) buffer.push(bar);
+      }
+      await flush(true);
+
+      if (imported === 0) {
+        await supabase.from("datasets").delete().eq("id", datasetId);
+        datasetId = null;
         setReport({
           fileName: file.name,
           imported: 0,
           skipped,
           rowErrors,
           layout,
-          fatal: errors[0] ?? "No usable rows found in that file.",
+          fatal: "No usable rows found in that file.",
         });
-        toast.error(errors[0] ?? "No usable rows found in that file.");
+        toast.error("No usable rows found in that file.");
         return;
       }
-      let trimmed = 0;
-      if (bars.length > MAX_BARS) {
-        trimmed = bars.length - MAX_BARS;
-        bars = bars.slice(-MAX_BARS);
-      }
 
-      // Very large intraday files can exceed the request payload limit; retry with
-      // progressively smaller (most recent) slices before giving up.
-      let lastError: string | null = null;
-      let inserted = 0;
-      for (const size of [bars.length, 100_000, 50_000, 25_000]) {
-        if (size > bars.length) continue;
-        const slice = bars.slice(-size);
-        const { error } = await supabase.from("datasets").insert({
-          user_id: user.id,
-          name: file.name.replace(/\.(csv|txt)$/i, ""),
-          symbol: symbol.trim() || "—",
-          timeframe: timeframe.trim() || "—",
-          bars: slice as unknown as never,
-          bar_count: slice.length,
-          start_at: new Date(slice[0]!.t).toISOString(),
-          end_at: new Date(slice[slice.length - 1]!.t).toISOString(),
-        });
-        if (!error) {
-          trimmed += bars.length - slice.length;
-          inserted = slice.length;
-          break;
-        }
-        lastError = [error.message, error.details, error.hint].filter(Boolean).join(" — ");
-      }
-      if (inserted === 0) throw new Error(lastError ?? "Could not save that data set.");
+      await supabase
+        .from("datasets")
+        .update({
+          bar_count: imported,
+          start_at: firstT === null ? null : new Date(firstT).toISOString(),
+          end_at: lastT === null ? null : new Date(lastT).toISOString(),
+        })
+        .eq("id", datasetId);
 
-      setReport({ fileName: file.name, imported: inserted, skipped, rowErrors, layout });
+      setReport({ fileName: file.name, imported, skipped, rowErrors, layout });
       toast.success(
-        `Imported ${inserted.toLocaleString()} bars${skipped ? ` (${skipped} rows skipped)` : ""}${
-          trimmed ? ` — kept the most recent ${inserted.toLocaleString()}, dropped ${trimmed.toLocaleString()} older bars` : ""
-        }`,
+        `Imported ${imported.toLocaleString()} bars${skipped ? ` (${skipped.toLocaleString()} rows skipped)` : ""}`,
       );
       setSymbol("");
       setTimeframe("");
       await queryClient.invalidateQueries({ queryKey: ["datasets"] });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      setReport((prev) => ({
+      if (datasetId && imported === 0) await supabase.from("datasets").delete().eq("id", datasetId);
+      else if (datasetId) await queryClient.invalidateQueries({ queryKey: ["datasets"] });
+      setReport({
         fileName: file.name,
-        imported: 0,
-        skipped: prev?.skipped ?? 0,
-        rowErrors: prev?.rowErrors ?? [],
-        layout: prev?.layout ?? null,
+        imported,
+        skipped,
+        rowErrors,
+        layout,
         fatal: message || "Could not import that file.",
-      }));
+      });
       toast.error(message || "Could not import that file.");
-
     } finally {
       setUploading(false);
+      setProgress(null);
     }
   }
-
-
-
 
   async function remove(id: string) {
     const { error } = await supabase.from("datasets").delete().eq("id", id);
@@ -271,18 +324,22 @@ function DatasetsPage() {
         </div>
         <p className="mt-3 font-mono text-xs text-muted-foreground">
           date/time, open, high, low, close, volume — header row optional. Headerless exports
-          (date,time,o,h,l,c,v) from Kinetick / FirstRate work as-is. Very large intraday files keep
-          the most recent {MAX_BARS.toLocaleString()} bars.
+          (date,time,o,h,l,c,v) from Kinetick / FirstRate work as-is. Files are streamed in full, so
+          multi-million-bar histories import completely.
         </p>
 
         {report ? <ImportErrorPanel report={report} onDismiss={() => setReport(null)} /> : null}
 
-
-
         {uploading ? (
-          <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" /> Importing…
-          </p>
+          <div className="mt-3 space-y-2">
+            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" />
+              Importing… {progress ? `${progress.rows.toLocaleString()} bars saved` : ""}
+            </p>
+            <Progress
+              value={progress && progress.total > 0 ? (progress.bytes / progress.total) * 100 : 0}
+            />
+          </div>
         ) : null}
       </div>
 
