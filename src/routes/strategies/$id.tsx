@@ -327,8 +327,16 @@ function StrategyDetail() {
               <TabsTrigger value="questions">
                 Questions{openQuestions.length ? ` (${openQuestions.length})` : ""}
               </TabsTrigger>
+              <TabsTrigger value="backtest">Backtest</TabsTrigger>
               <TabsTrigger value="source">Source</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="backtest" className="mt-4">
+              {definition && user ? (
+                <BacktestPanel strategyId={id} userId={user.id} definition={definition} />
+              ) : null}
+            </TabsContent>
+
 
             <TabsContent value="spec" className="mt-4 space-y-2">
               {SPEC_SECTIONS.map((section, i) => (
