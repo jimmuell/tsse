@@ -124,6 +124,7 @@ function StrategyDetail() {
         toast.error(err instanceof Error ? err.message : "Extraction failed");
       } finally {
         setExtracting(false);
+        setFirstExtract(false);
       }
     },
     [id, queryClient, runExtract],
@@ -139,6 +140,7 @@ function StrategyDetail() {
     if (extract) {
       navigate({ to: "/strategies/$id", params: { id }, search: {}, replace: true });
     }
+    setFirstExtract(true);
     void doExtract(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [extract, strategy?.status, strategy?.id]);
