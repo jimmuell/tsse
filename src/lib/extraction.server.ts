@@ -166,6 +166,7 @@ ${input.sourceContent.slice(0, 60000)}
       temperature: 0,
       topP: 1,
       seed: 7,
+      maxOutputTokens: 16000,
     });
     output = result.output;
   } catch (error) {
