@@ -303,8 +303,8 @@ export function BacktestPanel({
                   <Area
                     type="monotone"
                     dataKey="equity"
-                    stroke="hsl(var(--primary))"
-                    fill="hsl(var(--primary))"
+                    stroke="var(--primary)"
+                    fill="var(--primary)"
                     fillOpacity={0.12}
                     strokeWidth={2}
                   />
