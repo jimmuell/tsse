@@ -194,13 +194,16 @@ function StrategyDetail() {
   }
 
   async function submitAnswers() {
-    const entries = Object.entries(answers).filter(([, v]) => v.trim());
-    if (entries.length === 0) {
-      toast.error("Answer at least one question first.");
+    const all = questionsQuery.data ?? [];
+    const changed = all
+      .map((q) => ({ id: q.id, value: (answers[q.id] ?? q.answer ?? "").trim(), prev: q.answer ?? "" }))
+      .filter((q) => q.value && q.value !== q.prev);
+    if (changed.length === 0) {
+      toast.error("Answer or change at least one question first.");
       return;
     }
-    for (const [questionId, answer] of entries) {
-      await supabase.from("strategy_questions").update({ answer }).eq("id", questionId);
+    for (const { id: questionId, value } of changed) {
+      await supabase.from("strategy_questions").update({ answer: value }).eq("id", questionId);
     }
     setAnswers({});
     await doExtract(true);
