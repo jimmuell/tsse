@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
+import { ExtractingScreen } from "@/components/ExtractingScreen";
 import { SectionCard } from "@/components/SectionCard";
 import { ValidationPanel } from "@/components/ValidationPanel";
 import { AiReviewPanel } from "@/components/AiReviewPanel";
@@ -61,6 +62,7 @@ function StrategyDetail() {
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [extracting, setExtracting] = useState(false);
+  const [firstExtract, setFirstExtract] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -122,6 +124,7 @@ function StrategyDetail() {
         toast.error(err instanceof Error ? err.message : "Extraction failed");
       } finally {
         setExtracting(false);
+        setFirstExtract(false);
       }
     },
     [id, queryClient, runExtract],
@@ -137,6 +140,7 @@ function StrategyDetail() {
     if (extract) {
       navigate({ to: "/strategies/$id", params: { id }, search: {}, replace: true });
     }
+    setFirstExtract(true);
     void doExtract(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [extract, strategy?.status, strategy?.id]);
@@ -228,6 +232,18 @@ function StrategyDetail() {
     return (
       <AppShell email={user?.email ?? null}>
         <Skeleton className="h-96 rounded-md" />
+      </AppShell>
+    );
+  }
+
+  const showExtracting =
+    firstExtract ||
+    (strategy?.status === "extracting" && !!strategy?.source_content?.trim() && !dirty);
+
+  if (showExtracting) {
+    return (
+      <AppShell email={user?.email ?? null}>
+        <ExtractingScreen name={strategy?.name ?? null} />
       </AppShell>
     );
   }

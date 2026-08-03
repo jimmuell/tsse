@@ -1,11 +1,22 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { FileCode2, Plus } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { FileCode2, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -32,6 +43,9 @@ export const Route = createFileRoute("/")({
 function Dashboard() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth" });
@@ -49,6 +63,22 @@ function Dashboard() {
       return data;
     },
   });
+
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase.from("strategies").delete().eq("id", pendingDelete.id);
+      if (error) throw error;
+      await queryClient.invalidateQueries({ queryKey: ["strategies", user?.id] });
+      toast.success("Specification deleted");
+      setPendingDelete(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not delete strategy");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   return (
     <AppShell email={user?.email ?? null}>
@@ -85,42 +115,87 @@ function Dashboard() {
           {strategies.map((s) => {
             const scores = (s.scores ?? {}) as Record<string, number>;
             return (
-              <Link
-                key={s.id}
-                to="/strategies/$id"
-                params={{ id: s.id }}
-                className="group rounded-md border border-border bg-card p-4 transition-colors hover:border-primary/40"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <h2 className="text-sm font-semibold leading-snug group-hover:text-primary">
-                    {s.name}
-                  </h2>
-                  <Badge variant="outline" className="shrink-0 font-mono text-[10px] uppercase">
-                    {s.status}
-                  </Badge>
-                </div>
-                <p className="mt-1 font-mono text-[11px] text-muted-foreground">{s.source_type}</p>
-                <dl className="mt-4 grid grid-cols-3 gap-2 border-t border-border pt-3">
-                  {[
-                    ["Complete", scores['completeness']],
-                    ["Determin.", scores['determinism']],
-                    ["Ambiguity", scores['ambiguity']],
-                  ].map(([label, value]) => (
-                    <div key={label as string}>
-                      <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                        {label}
-                      </dt>
-                      <dd className="font-mono text-sm font-semibold tabular-nums">
-                        {typeof value === "number" ? `${Math.round(value)}%` : "—"}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              </Link>
+              <div key={s.id} className="relative">
+                <Link
+                  to="/strategies/$id"
+                  params={{ id: s.id }}
+                  className="group block rounded-md border border-border bg-card p-4 transition-colors hover:border-primary/40"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <h2 className="text-sm font-semibold leading-snug group-hover:text-primary">
+                      {s.name}
+                    </h2>
+                    <Badge
+                      variant="outline"
+                      className="mr-8 shrink-0 font-mono text-[10px] uppercase"
+                    >
+                      {s.status}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+                    {s.source_type}
+                  </p>
+                  <dl className="mt-4 grid grid-cols-3 gap-2 border-t border-border pt-3">
+                    {[
+                      ["Complete", scores['completeness']],
+                      ["Determin.", scores['determinism']],
+                      ["Ambiguity", scores['ambiguity']],
+                    ].map(([label, value]) => (
+                      <div key={label as string}>
+                        <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                          {label}
+                        </dt>
+                        <dd className="font-mono text-sm font-semibold tabular-nums">
+                          {typeof value === "number" ? `${Math.round(value)}%` : "—"}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </Link>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Delete ${s.name}`}
+                  className="absolute right-2 top-2 size-7 text-muted-foreground hover:text-destructive"
+                  onClick={() => setPendingDelete({ id: s.id, name: s.name })}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </div>
             );
           })}
         </div>
       )}
+
+      <AlertDialog
+        open={!!pendingDelete}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this specification?</AlertDialogTitle>
+            <AlertDialogDescription>
+              “{pendingDelete?.name}” and its clarifying questions will be permanently removed. This
+              cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              onClick={(e) => {
+                e.preventDefault();
+                void confirmDelete();
+              }}
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppShell>
   );
+
 }
