@@ -111,7 +111,8 @@ export class EvalContext {
     const tick = this.tickSize;
 
     let dayStart = 0;
-    let prior: { poc: number; vah: number; val: number } | null = null;
+    type Levels = { poc: number; vah: number; val: number };
+    let prior: Levels | null = null;
     const dayKey = (t: number) => Math.floor(t / 86_400_000);
 
     const flush = (from: number, to: number) => {
