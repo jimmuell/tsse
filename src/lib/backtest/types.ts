@@ -83,3 +83,17 @@ export type BacktestResult = {
   equity: EquityPoint[];
   stats: BacktestStats;
 };
+
+/** Result of a run executed on the server against row-stored bars. */
+export type ServerRunResult = BacktestResult & {
+  datasetName: string;
+  barsUsed: number;
+  /** true when the requested range exceeded the per-run bar cap */
+  barsTruncated: boolean;
+  /** true when only the first slice of trades is returned */
+  tradesTruncated: boolean;
+  totalTrades: number;
+  issues: CompileIssue[];
+  rangeStart: number | null;
+  rangeEnd: number | null;
+};
