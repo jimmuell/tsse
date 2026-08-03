@@ -48,6 +48,81 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: "up
   );
 }
 
+const RULE_FIELDS = [
+  {
+    section: "entry",
+    key: "long_entry",
+    label: "Long entry",
+    placeholder: "close > sma(close, 20) and rsi(close, 14) > 55",
+  },
+  {
+    section: "entry",
+    key: "short_entry",
+    label: "Short entry",
+    placeholder: "close < sma(close, 20)",
+  },
+  {
+    section: "stop_loss",
+    key: "stop_formula",
+    label: "Stop loss",
+    placeholder: "2 * atr(14)",
+  },
+  {
+    section: "profit_target",
+    key: "target_formula",
+    label: "Profit target",
+    placeholder: "2 * risk",
+  },
+  {
+    section: "position_sizing",
+    key: "sizing_formula",
+    label: "Position size (optional)",
+    placeholder: "leave empty to use default quantity",
+  },
+  {
+    section: "exit",
+    key: "exit_conditions",
+    label: "Exit rule (optional)",
+    placeholder: "close < sma(close, 20)",
+  },
+] as const;
+
+type RuleOverrides = Record<string, string>;
+
+function overrideKeyOf(f: { section: string; key: string }) {
+  return `${f.section}.${f.key}`;
+}
+
+function initialOverrides(strategyId: string, definition: StrategyDefinition): RuleOverrides {
+  let stored: RuleOverrides = {};
+  if (typeof window !== "undefined") {
+    try {
+      stored = JSON.parse(window.localStorage.getItem(`tsse:rules:${strategyId}`) ?? "{}");
+    } catch {
+      stored = {};
+    }
+  }
+  const out: RuleOverrides = {};
+  for (const f of RULE_FIELDS) {
+    const k = overrideKeyOf(f);
+    out[k] = stored[k] ?? (definition.sections?.[f.section]?.[f.key] ?? "");
+  }
+  return out;
+}
+
+function applyOverrides(definition: StrategyDefinition, overrides: RuleOverrides): StrategyDefinition {
+  const sections: StrategyDefinition["sections"] = {
+    ...(definition.sections ?? {}),
+  };
+  for (const f of RULE_FIELDS) {
+    sections[f.section] = {
+      ...(sections[f.section] ?? {}),
+      [f.key]: overrides[overrideKeyOf(f)] ?? "",
+    };
+  }
+  return { ...definition, sections };
+}
+
 export function BacktestPanel({
   strategyId,
   userId,
@@ -62,8 +137,35 @@ export function BacktestPanel({
   const [config, setConfig] = useState<BacktestConfig>(DEFAULT_CONFIG);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<BacktestResult | null>(null);
+  const [overrides, setOverrides] = useState<RuleOverrides>(() =>
+    initialOverrides(strategyId, definition),
+  );
 
-  const compiled = useMemo(() => compileStrategy(definition), [definition]);
+  function setRule(key: string, value: string) {
+    setOverrides((prev) => {
+      const next = { ...prev, [key]: value };
+      try {
+        window.localStorage.setItem(`tsse:rules:${strategyId}`, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
+
+  function resetRules() {
+    try {
+      window.localStorage.removeItem(`tsse:rules:${strategyId}`);
+    } catch {
+      /* ignore */
+    }
+    setOverrides(initialOverrides(strategyId, { ...definition }));
+  }
+
+  const compiled = useMemo(
+    () => compileStrategy(applyOverrides(definition, overrides)),
+    [definition, overrides],
+  );
   const blockers = compiled.issues.filter((i) => i.level === "blocker");
   const warnings = compiled.issues.filter((i) => i.level === "warning");
 
