@@ -62,6 +62,7 @@ function StrategyDetail() {
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [extracting, setExtracting] = useState(false);
+  const [firstExtract, setFirstExtract] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
 
   useEffect(() => {
