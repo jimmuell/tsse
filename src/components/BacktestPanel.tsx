@@ -62,7 +62,6 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: "up
 
 export function BacktestPanel({
   strategyId,
-  userId,
   definition,
 }: {
   strategyId: string;
@@ -73,7 +72,9 @@ export function BacktestPanel({
   const [datasetId, setDatasetId] = useState<string>("");
   const [config, setConfig] = useState<BacktestConfig>(DEFAULT_CONFIG);
   const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<BacktestResult | null>(null);
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [result, setResult] = useState<ServerRunResult | null>(null);
   const [overrides, setOverrides] = useState<RuleOverrides>(() =>
     initialOverrides(strategyId, definition),
   );
