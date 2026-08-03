@@ -43,6 +43,9 @@ export const Route = createFileRoute("/")({
 function Dashboard() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth" });
@@ -60,6 +63,22 @@ function Dashboard() {
       return data;
     },
   });
+
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase.from("strategies").delete().eq("id", pendingDelete.id);
+      if (error) throw error;
+      await queryClient.invalidateQueries({ queryKey: ["strategies", user?.id] });
+      toast.success("Specification deleted");
+      setPendingDelete(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not delete strategy");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   return (
     <AppShell email={user?.email ?? null}>
