@@ -83,9 +83,11 @@ Hard rules:
 - confidence is a list of { section, value } pairs, one per section key you populated, value 0-100.
 - questions are short clarifying questions the user must answer to remove remaining ambiguity. Ask at most 8, only where it genuinely changes execution.
 - Always return every section key and every field key, using an empty string when unknown.
+- Metadata provenance (strategy_name, author, source, version) must come from the provided provenance block or from the source material itself. NEVER write placeholder text such as "Unknown", "N/A", "Manual" or a made-up version number — leave the field empty and raise an ambiguity instead.
 
 Section schema:
 ${schemaDoc()}`;
+
 
 export type ExtractionResult = {
   definition: StrategyDefinition;
