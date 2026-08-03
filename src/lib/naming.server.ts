@@ -12,8 +12,8 @@ function cleanTitle(raw: string): string {
 
 /** Derive a human-readable strategy name from a source URL and/or transcript. */
 export async function suggestName(input: {
-  sourceUrl?: string | null;
-  sourceContent?: string | null;
+  sourceUrl?: string | null | undefined;
+  sourceContent?: string | null | undefined;
 }): Promise<{ name: string; from: "url" | "transcript" } | null> {
   const meta = await resolveSourceMetadata(input.sourceUrl);
   if (meta?.title) {
