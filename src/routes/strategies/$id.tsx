@@ -243,7 +243,7 @@ function StrategyDetail() {
   if (showExtracting) {
     return (
       <AppShell email={user?.email ?? null}>
-        <ExtractingScreen name={strategy?.name} />
+        <ExtractingScreen name={strategy?.name ?? null} />
       </AppShell>
     );
   }
