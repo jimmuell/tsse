@@ -101,7 +101,7 @@ function compileField(
       field: key,
       message: `${label} refers to ${unknown
         .map((u) => `"${u}"`)
-        .join(", ")}, which the engine does not know. Use bar fields (open, high, low, close, volume) or indicators (sma, ema, atr, rsi, highest, lowest).`,
+        .join(", ")}, which the engine does not know. Use bar fields (open, high, low, close, volume), indicators (sma, ema, atr, rsi, highest, lowest), session levels (poc, vah, val), or time, tick_size, risk, entry_price.`,
     });
     return null;
   }
