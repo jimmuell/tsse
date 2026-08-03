@@ -81,6 +81,8 @@ export const extractStrategy = createServerFn({ method: "POST" })
           user_id: context.userId,
           section: q.section || "general",
           question: q.question,
+          explanation: q.explanation ?? null,
+          options: (q.options ?? []) as never,
         })),
       );
     }
