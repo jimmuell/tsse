@@ -5,7 +5,7 @@ import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 function parseLooseJson(text: string | undefined): unknown {
   if (!text) return undefined;
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const candidate = (fenced ? fenced[1] : text).trim();
+  const candidate = (fenced?.[1] ?? text).trim();
   const start = candidate.indexOf("{");
   const end = candidate.lastIndexOf("}");
   if (start === -1 || end <= start) return undefined;
