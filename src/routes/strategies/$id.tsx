@@ -236,6 +236,18 @@ function StrategyDetail() {
     );
   }
 
+  const showExtracting =
+    firstExtract ||
+    (strategy?.status === "extracting" && !!strategy?.source_content?.trim() && !dirty);
+
+  if (showExtracting) {
+    return (
+      <AppShell email={user?.email ?? null}>
+        <ExtractingScreen name={strategy?.name} />
+      </AppShell>
+    );
+  }
+
   const openQuestions = (questionsQuery.data ?? []).filter((q) => !q.answer);
 
   return (
