@@ -110,15 +110,20 @@ export function parseCsv(text: string): CsvParseResult {
       };
     }
     firstDataRow = 0;
-    const dateThenTime = !looksNumeric(cells[0] as string) && /^\d{1,2}:?\d{2}/.test(cells[1] ?? "");
+    const first = (cells[0] ?? "").trim();
+    const second = (cells[1] ?? "").trim();
+    // A separate time column looks like 09:30, 09:30:00, 0930 or 093000 — never a price.
+    const isTimeCell = /^\d{1,2}:\d{2}(:\d{2})?$/.test(second) || /^(\d{4}|\d{6})$/.test(second);
+    const firstHasTime = /\d{1,2}:\d{2}/.test(first);
+    const dateThenTime = !looksNumeric(first) && !firstHasTime && isTimeCell;
+    iT = 0;
     if (dateThenTime) {
-      iT = 0;
       iTimeOnly = 1;
       iO = 2;
     } else {
-      iT = 0;
       iO = 1;
     }
+
     iH = iO + 1;
     iL = iO + 2;
     iC = iO + 3;
