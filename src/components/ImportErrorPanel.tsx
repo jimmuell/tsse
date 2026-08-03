@@ -32,10 +32,17 @@ export function ImportErrorPanel({
   onDismiss: () => void;
 }) {
   const { layout, rowErrors } = report;
+  const clean = !report.fatal && report.skipped === 0;
   return (
-    <div className="mt-4 rounded-md border border-destructive/40 bg-destructive/5 p-4">
+    <div
+      className={`mt-4 rounded-md border p-4 ${
+        clean ? "border-border bg-muted/40" : "border-destructive/40 bg-destructive/5"
+      }`}
+    >
       <div className="flex items-start gap-3">
-        <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
+        <AlertTriangle
+          className={`mt-0.5 size-4 shrink-0 ${clean ? "text-muted-foreground" : "text-destructive"}`}
+        />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium">
             Import report — {report.fileName}
