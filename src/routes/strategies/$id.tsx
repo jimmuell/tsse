@@ -235,7 +235,19 @@ function StrategyDetail() {
             {strategy?.source_type} · {strategy?.status}
             {dirty ? " · unsaved changes" : ""}
           </p>
+          {strategy?.source_url ? (
+            <a
+              href={strategy.source_url}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="mt-1 inline-flex max-w-full items-center gap-1 truncate text-xs text-primary underline-offset-4 hover:underline"
+            >
+              <LinkIcon className="size-3 shrink-0" />
+              <span className="truncate">{strategy.source_url}</span>
+            </a>
+          ) : null}
         </div>
+
         <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
