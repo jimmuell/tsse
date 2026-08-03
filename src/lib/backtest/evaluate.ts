@@ -112,7 +112,7 @@ export class EvalContext {
 
     let dayStart = 0;
     type Levels = { poc: number; vah: number; val: number };
-    let prior: Levels | null = null;
+    const state: { prior: Levels | null } = { prior: null };
     const dayKey = (t: number) => Math.floor(t / 86_400_000);
 
     const flush = (from: number, to: number) => {
@@ -146,7 +146,7 @@ export class EvalContext {
           covered += below;
         }
       }
-      prior = {
+      state.prior = {
         poc: (sorted[pocIdx] as [number, number])[0] * tick,
         vah: (sorted[hi] as [number, number])[0] * tick,
         val: (sorted[lo] as [number, number])[0] * tick,
@@ -159,12 +159,14 @@ export class EvalContext {
         flush(dayStart, i);
         dayStart = i;
       }
+      const prior = state.prior;
       if (prior) {
         poc[i] = prior.poc;
         vah[i] = prior.vah;
         val[i] = prior.val;
       }
     }
+
     this.profile = { poc, vah, val };
     return this.profile;
   }
