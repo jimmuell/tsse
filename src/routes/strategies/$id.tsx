@@ -2,7 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Download, Loader2, Save, Sparkle, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Download,
+  Link as LinkIcon,
+  Loader2,
+  Save,
+  Sparkle,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { SectionCard } from "@/components/SectionCard";
