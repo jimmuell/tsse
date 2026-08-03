@@ -55,7 +55,14 @@ const ExtractionSchema = z.object({
   ),
   confidence: z.array(z.object({ section: z.string(), value: z.number() })),
   warnings: z.array(z.string()),
-  questions: z.array(z.object({ section: z.string(), question: z.string() })),
+  questions: z.array(
+    z.object({
+      section: z.string(),
+      question: z.string(),
+      explanation: z.string(),
+      options: z.array(z.object({ label: z.string(), answer: z.string() })),
+    }),
+  ),
 });
 
 function schemaDoc(): string {
@@ -83,7 +90,9 @@ Hard rules:
 - Assumption format: term = the vague phrase from the source; interpretation = the exact expression you substituted; confidence = 0-100.
 - Ambiguity statuses: resolved, needs_user_input, unknown, cannot_determine.
 - confidence is a list of { section, value } pairs, one per section key you populated, value 0-100.
-- questions are short clarifying questions the user must answer to remove remaining ambiguity. Ask at most 8, only where it genuinely changes execution.
+- questions are short clarifying questions the user must answer to remove remaining ambiguity. Ask at most 8, only where it genuinely changes execution. Each question MUST include:
+  - explanation: 1-3 plain-English sentences saying what the source does and does not state, and why the answer changes execution. Written for a trader, not an engineer.
+  - options: 2-3 concrete, ready-to-use candidate answers. label is a short name (e.g. "Standard 1% risk", "Mirror the video literally", "Confirm the symmetric rule"); answer is the exact text that could be pasted as the user's answer, written as a machine-evaluable rule with real numbers/expressions. Never write vague options.
 - Always return every section key and every field key, using an empty string when unknown.
 - Metadata provenance (strategy_name, author, source, version) must come from the provided provenance block or from the source material itself. NEVER write placeholder text such as "Unknown", "N/A", "Manual" or a made-up version number — leave the field empty and raise an ambiguity instead.
 - Be reproducible: for the same source material always produce the same wording, the same ordering of assumptions/ambiguities/questions (source order), and the same confidence numbers. Do not paraphrase differently between runs; quote or restate the source as literally as possible. Round every confidence value to the nearest 5.
