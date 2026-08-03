@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { ExtractingScreen } from "@/components/ExtractingScreen";
 import { SectionCard } from "@/components/SectionCard";
+import { BacktestPanel } from "@/components/BacktestPanel";
 import { ValidationPanel } from "@/components/ValidationPanel";
 import { AiReviewPanel } from "@/components/AiReviewPanel";
 import { Button } from "@/components/ui/button";
