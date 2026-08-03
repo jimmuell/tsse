@@ -119,13 +119,20 @@ function StrategyDetail() {
     [id, queryClient, runExtract],
   );
 
+  const autoAttempted = useRef(false);
+
   useEffect(() => {
-    if (extract && strategy && strategy.status === "extracting" && !extracting) {
+    if (!strategy || extracting || autoAttempted.current) return;
+    const pending = strategy.status === "extracting" || strategy.status === "failed";
+    if (!pending || !strategy.source_content?.trim()) return;
+    autoAttempted.current = true;
+    if (extract) {
       navigate({ to: "/strategies/$id", params: { id }, search: {}, replace: true });
-      void doExtract(false);
     }
+    void doExtract(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [extract, strategy?.status]);
+  }, [extract, strategy?.status, strategy?.id]);
+
 
   const validation = useMemo(
     () => (definition ? validateDefinition(definition) : null),
