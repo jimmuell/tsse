@@ -110,9 +110,7 @@ function DatasetsPage() {
         end_at: new Date(bars[bars.length - 1]!.t).toISOString(),
       });
       if (error) throw error;
-      if (skipped > 0) {
-        setReport({ fileName: file.name, imported: bars.length, skipped, rowErrors, layout });
-      }
+      setReport({ fileName: file.name, imported: bars.length, skipped, rowErrors, layout });
       toast.success(
         `Imported ${bars.length.toLocaleString()} bars${skipped ? ` (${skipped} rows skipped)` : ""}${
           trimmed ? ` — kept the most recent ${MAX_BARS.toLocaleString()}, dropped ${trimmed.toLocaleString()} older bars` : ""
@@ -122,11 +120,21 @@ function DatasetsPage() {
       setTimeframe("");
       await queryClient.invalidateQueries({ queryKey: ["datasets"] });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not import that file.");
+      const message = err instanceof Error ? err.message : "Could not import that file.";
+      setReport((prev) => ({
+        fileName: file.name,
+        imported: 0,
+        skipped: prev?.skipped ?? 0,
+        rowErrors: prev?.rowErrors ?? [],
+        layout: prev?.layout ?? null,
+        fatal: message,
+      }));
+      toast.error(message);
     } finally {
       setUploading(false);
     }
   }
+
 
 
 
