@@ -153,25 +153,53 @@ function DatasetsPage() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="csv">CSV / TXT file</Label>
-            <Input
+            <input
+              ref={fileInputRef}
               id="csv"
               type="file"
+              className="sr-only"
               accept=".csv,.txt,text/csv,text/plain"
-              disabled={uploading}
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 e.target.value = "";
                 if (file) void handleFile(file);
               }}
             />
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full justify-start font-normal"
+              disabled={uploading}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload className="size-4" /> Choose file…
+            </Button>
           </div>
+        </div>
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragging(false);
+            const file = e.dataTransfer.files?.[0];
+            if (file) void handleFile(file);
+          }}
+          className={`mt-4 rounded-md border border-dashed p-6 text-center text-sm ${
+            dragging ? "border-primary bg-primary/5 text-foreground" : "border-border text-muted-foreground"
+          }`}
+        >
+          Drag a data file here, or use “Choose file…” above.
         </div>
         <p className="mt-3 font-mono text-xs text-muted-foreground">
           date/time, open, high, low, close, volume — header row optional. Headerless exports
           (date,time,o,h,l,c,v) from Kinetick / FirstRate work as-is. Very large intraday files keep
           the most recent {MAX_BARS.toLocaleString()} bars.
-
         </p>
+
         {uploading ? (
           <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" /> Importing…
