@@ -99,37 +99,54 @@ function DatasetsPage() {
         trimmed = bars.length - MAX_BARS;
         bars = bars.slice(-MAX_BARS);
       }
-      const { error } = await supabase.from("datasets").insert({
-        user_id: user.id,
-        name: file.name.replace(/\.(csv|txt)$/i, ""),
-        symbol: symbol.trim() || "—",
-        timeframe: timeframe.trim() || "—",
-        bars: bars as unknown as never,
-        bar_count: bars.length,
-        start_at: new Date(bars[0]!.t).toISOString(),
-        end_at: new Date(bars[bars.length - 1]!.t).toISOString(),
-      });
-      if (error) throw error;
-      setReport({ fileName: file.name, imported: bars.length, skipped, rowErrors, layout });
+
+      // Very large intraday files can exceed the request payload limit; retry with
+      // progressively smaller (most recent) slices before giving up.
+      let lastError: string | null = null;
+      let inserted = 0;
+      for (const size of [bars.length, 100_000, 50_000, 25_000]) {
+        if (size > bars.length) continue;
+        const slice = bars.slice(-size);
+        const { error } = await supabase.from("datasets").insert({
+          user_id: user.id,
+          name: file.name.replace(/\.(csv|txt)$/i, ""),
+          symbol: symbol.trim() || "—",
+          timeframe: timeframe.trim() || "—",
+          bars: slice as unknown as never,
+          bar_count: slice.length,
+          start_at: new Date(slice[0]!.t).toISOString(),
+          end_at: new Date(slice[slice.length - 1]!.t).toISOString(),
+        });
+        if (!error) {
+          trimmed += bars.length - slice.length;
+          inserted = slice.length;
+          break;
+        }
+        lastError = [error.message, error.details, error.hint].filter(Boolean).join(" — ");
+      }
+      if (inserted === 0) throw new Error(lastError ?? "Could not save that data set.");
+
+      setReport({ fileName: file.name, imported: inserted, skipped, rowErrors, layout });
       toast.success(
-        `Imported ${bars.length.toLocaleString()} bars${skipped ? ` (${skipped} rows skipped)` : ""}${
-          trimmed ? ` — kept the most recent ${MAX_BARS.toLocaleString()}, dropped ${trimmed.toLocaleString()} older bars` : ""
+        `Imported ${inserted.toLocaleString()} bars${skipped ? ` (${skipped} rows skipped)` : ""}${
+          trimmed ? ` — kept the most recent ${inserted.toLocaleString()}, dropped ${trimmed.toLocaleString()} older bars` : ""
         }`,
       );
       setSymbol("");
       setTimeframe("");
       await queryClient.invalidateQueries({ queryKey: ["datasets"] });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Could not import that file.";
+      const message = err instanceof Error ? err.message : String(err);
       setReport((prev) => ({
         fileName: file.name,
         imported: 0,
         skipped: prev?.skipped ?? 0,
         rowErrors: prev?.rowErrors ?? [],
         layout: prev?.layout ?? null,
-        fatal: message,
+        fatal: message || "Could not import that file.",
       }));
-      toast.error(message);
+      toast.error(message || "Could not import that file.");
+
     } finally {
       setUploading(false);
     }
