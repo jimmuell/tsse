@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { History, Trash2 } from "lucide-react";
+import { Columns2, History, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AppShell } from "@/components/AppShell";
@@ -213,7 +213,7 @@ function RunsPage() {
         </div>
       ) : (
         <>
-          {compared.length >= 1 ? (
+          {showCompare && compared.length >= 2 ? (
             <div className="mt-8 space-y-4">
               <div className="rounded-lg border border-border bg-card p-4">
                 <p className="mb-3 text-sm font-medium">Equity curves</p>
