@@ -414,35 +414,19 @@ export function BacktestPanel({
                 ))}
               </SelectContent>
             </Select>
+            <p className="font-mono text-[11px] text-muted-foreground">
+              Engine price history: ES full history — 2008-01-02 to present
+            </p>
             {selectedDataset ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="font-mono text-[11px] text-muted-foreground">
-                  Available history: {coverageFrom ?? "—"} → {coverageTo ?? "—"}
-                </p>
-                {coverageFrom && coverageTo ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-[11px]"
-                    onClick={() => {
-                      setFrom(coverageFrom);
-                      setTo(coverageTo);
-                    }}
-                  >
-                    Use full range
-                  </Button>
-                ) : null}
-              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Imported set coverage (reference only, not used by the audit):{" "}
+                {coverageFrom ?? "—"} → {coverageTo ?? "—"}
+              </p>
             ) : (
               <p className="text-[11px] text-muted-foreground">
-                Import price history on the Data sets page to see its available date range here.
+                Import price history on the Data sets page to see its date range here.
               </p>
             )}
-            {outsideCoverage ? (
-              <p className="text-[11px] text-destructive">
-                Your selected window falls outside this data set&apos;s coverage.
-              </p>
-            ) : null}
           </div>
           <div className="space-y-1.5">
 
