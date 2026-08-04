@@ -1,76 +1,42 @@
-import { compileStrategy } from "./backtest/compile";
-import { applyOverrides, type RuleOverrides } from "./backtest/rules";
-import type { BacktestConfig } from "./backtest/types";
-import type { StrategyDefinition } from "./strategy-schema";
-
-/** Version of the 17-section spec shape we send to the engine and to the WIT lab. */
-export const SPEC_VERSION = "tsse-spec-1";
+import type { WireStrategyConfig } from "./wit/wire-config";
 
 export type EngineJobRequest = {
-  jobId: string;
-  callbackUrl: string;
-  specVersion: string;
-  symbol: string;
-  timeframe: string;
-  from: string | null;
-  to: string | null;
-  config: BacktestConfig;
-  strategy: {
-    id: string;
-    name: string;
-    /** Executable rules compiled from the spec — the shared definition both sides read. */
-    rules: Record<string, string>;
-    /** Full 17-section spec, for engines that want more context than the rules. */
-    definition: StrategyDefinition;
-  };
+  evaluation_id: string;
+  kind: "backtest";
+  callback_url: string;
+  config: WireStrategyConfig;
+  budget: { max_wall_seconds: number };
 };
 
 export type EngineSubmitOutcome = {
-  accepted: boolean;
-  engineVersion: string | null;
-  message: string | null;
+  runId: string;
+  status: string;
 };
 
-function requireEngineConfig(): { baseUrl: string; apiKey: string } {
+function requireEngineConfig(): { baseUrl: string; serviceKey: string } {
   const baseUrl = process.env["BACKTEST_ENGINE_URL"];
-  const apiKey = process.env["BACKTEST_ENGINE_API_KEY"];
-  if (!baseUrl || !apiKey) {
+  const serviceKey = process.env["WIT_ENGINE_SERVICE_KEY"];
+  if (!baseUrl || !serviceKey) {
     throw new Error(
-      "The backtest engine is not configured yet. Add the engine URL and API key in project settings.",
+      "The backtest engine is not configured yet. Add the engine URL and service key in project settings.",
     );
   }
-  return { baseUrl: baseUrl.replace(/\/+$/, ""), apiKey };
+  return { baseUrl: baseUrl.replace(/\/+$/, ""), serviceKey };
 }
 
-/** Rules the engine executes, derived from the spec plus any user overrides. */
-export function compiledRules(
-  definition: StrategyDefinition,
-  overrides: RuleOverrides,
-): { rules: Record<string, string>; blockers: string[] } {
-  const merged = applyOverrides(definition, overrides);
-  const compiled = compileStrategy(merged);
-  const rules: Record<string, string> = {};
-  for (const [key, value] of Object.entries(overrides)) {
-    if (typeof value === "string" && value.trim()) rules[key.split(":").pop() as string] = value.trim();
-  }
-  return {
-    rules,
-    blockers: compiled.issues
-      .filter((i) => i.level === "blocker")
-      .map((i) => `${i.field} — ${i.message}`),
-  };
-}
+type WitErrorBody = { error?: { code?: string; message?: string; detail?: unknown } };
+type WitAckBody = { run_id?: string; status?: string };
 
-/** Hands a job to the engine. The engine acknowledges fast and calls us back when done. */
+/** Hands a job to the WIT door. The engine acknowledges 202 and calls callback_url when done. */
 export async function submitToEngine(request: EngineJobRequest): Promise<EngineSubmitOutcome> {
-  const { baseUrl, apiKey } = requireEngineConfig();
+  const { baseUrl, serviceKey } = requireEngineConfig();
   let response: Response;
   try {
-    response = await fetch(`${baseUrl}/backtests`, {
+    response = await fetch(`${baseUrl}/wit/v1/runs`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-api-key": apiKey,
+        authorization: `Bearer ${serviceKey}`,
       },
       body: JSON.stringify(request),
     });
@@ -81,22 +47,28 @@ export async function submitToEngine(request: EngineJobRequest): Promise<EngineS
   }
 
   const text = await response.text();
-  let parsed: { engineVersion?: string; version?: string; message?: string; error?: string } = {};
-  try {
-    parsed = text ? (JSON.parse(text) as typeof parsed) : {};
-  } catch {
-    /* engine returned a non-JSON body */
-  }
 
   if (!response.ok) {
+    let parsed: WitErrorBody = {};
+    try {
+      parsed = text ? (JSON.parse(text) as WitErrorBody) : {};
+    } catch {
+      /* engine returned a non-JSON error body */
+    }
     throw new Error(
-      parsed.error ?? parsed.message ?? `The engine rejected the job (HTTP ${response.status}).`,
+      parsed.error?.message ?? `The engine rejected the job (HTTP ${response.status}).`,
     );
   }
 
-  return {
-    accepted: true,
-    engineVersion: parsed.engineVersion ?? parsed.version ?? null,
-    message: parsed.message ?? null,
-  };
+  let parsed: WitAckBody = {};
+  try {
+    parsed = text ? (JSON.parse(text) as WitAckBody) : {};
+  } catch {
+    throw new Error("The engine accepted the job but returned a non-JSON body.");
+  }
+  if (!parsed.run_id) {
+    throw new Error("The engine accepted the job but did not return a run_id.");
+  }
+
+  return { runId: parsed.run_id, status: parsed.status ?? "queued" };
 }
