@@ -87,7 +87,8 @@ export type BacktestResult = {
 /** Result of a run executed on the server against row-stored bars. */
 export type ServerRunResult = BacktestResult & {
   datasetName: string;
-  barsUsed: number;
+  /** Null when the source (e.g. the WIT engine) does not report a bar count. */
+  barsUsed: number | null;
   /** true when the requested range exceeded the per-run bar cap */
   barsTruncated: boolean;
   /** true when only the first slice of trades is returned */
