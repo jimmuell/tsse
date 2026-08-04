@@ -26,6 +26,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { compileStrategy } from "@/lib/backtest/compile";
 import { runBacktestOnServer } from "@/lib/backtest.functions";
+import { engineStatus, submitEngineBacktest } from "@/lib/engine.functions";
+import { useBacktestJob } from "@/hooks/useBacktestJob";
 import {
   RULE_FIELDS,
   applyOverrides,
@@ -36,7 +38,9 @@ import {
 import {
   DEFAULT_CONFIG,
   type BacktestConfig,
+  type EquityPoint,
   type ServerRunResult,
+  type Trade,
 } from "@/lib/backtest/types";
 import type { StrategyDefinition } from "@/lib/strategy-schema";
 
