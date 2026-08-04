@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { History, Trash2 } from "lucide-react";
+import { Columns2, History, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AppShell } from "@/components/AppShell";
@@ -83,6 +83,7 @@ function RunsPage() {
   const [selected, setSelected] = useState<string[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth" });
@@ -106,6 +107,7 @@ function RunsPage() {
   const compared = runs.filter((r) => selected.includes(r.id)).slice(0, MAX_COMPARE);
 
   function toggle(id: string) {
+    setShowCompare(false);
     setSelected((prev) =>
       prev.includes(id)
         ? prev.filter((x) => x !== id)
@@ -176,15 +178,26 @@ function RunsPage() {
           </p>
         </div>
         {selected.length > 0 ? (
-          <Button
-            variant="destructive"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => setConfirmOpen(true)}
-          >
-            <Trash2 className="size-4" />
-            Delete {selected.length}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              className="gap-1.5"
+              disabled={selected.length < 2}
+              onClick={() => setShowCompare(true)}
+            >
+              <Columns2 className="size-4" />
+              Compare {selected.length}
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setConfirmOpen(true)}
+            >
+              <Trash2 className="size-4" />
+              Delete {selected.length}
+            </Button>
+          </div>
         ) : null}
       </div>
 
@@ -200,7 +213,7 @@ function RunsPage() {
         </div>
       ) : (
         <>
-          {compared.length >= 1 ? (
+          {showCompare && compared.length >= 2 ? (
             <div className="mt-8 space-y-4">
               <div className="rounded-lg border border-border bg-card p-4">
                 <p className="mb-3 text-sm font-medium">Equity curves</p>
