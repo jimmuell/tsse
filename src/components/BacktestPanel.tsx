@@ -162,6 +162,12 @@ export function BacktestPanel({
     coverageFrom && coverageTo && ((from && from < coverageFrom) || (to && to > coverageTo)),
   );
 
+  useEffect(() => {
+    if (!datasetId && datasets.length > 0) setDatasetId(datasets[0]!.id);
+  }, [datasets.length]);
+
+
+
 
 
   const runsQuery = useQuery({
