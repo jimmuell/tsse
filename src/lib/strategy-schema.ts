@@ -109,6 +109,11 @@ export const SPEC_SECTIONS: SpecSection[] = [
     fields: [
       { key: "setup_type", label: "Setup type", required: true },
       { key: "setup_conditions", label: "Setup conditions", rule: true, multiline: true, required: true },
+      {
+        key: "value_area_pct",
+        label: "Value area %",
+        hint: "e.g. 70 — the % of volume the value area covers",
+      },
     ],
   },
   {

@@ -45,7 +45,7 @@ export type WireConfigInput = {
   config: Pick<BacktestConfig, "commission" | "slippage">;
   /** The strategy's 17-section spec — source of the 5 fields the engine HONOURS that TSSE's
    *  form already captures (chart.timeframe, entry.long_entry, stop_loss.stop_formula,
-   *  profit_target.target_formula, setup.setup_conditions and related bias fields). */
+   *  profit_target.target_formula, setup.value_area_pct). */
   definition: StrategyDefinition;
 };
 
@@ -149,10 +149,20 @@ function deriveTrigger(longEntryRaw: string): "bar_close_beyond_level" | null {
   return isBareClose(node.l) || isBareClose(node.r) ? "bar_close_beyond_level" : null;
 }
 
+/** Parses "70" or "70%" into the FRACTION the contract wants — per strategy-config.v1.json:
+ *  "HONOURED. A FRACTION of opening-window volume, NOT a percent: 0.70 means seventy percent."
+ *  (values >1 up to 100 are auto-normalized by the engine too, but sending the native fraction
+ *  directly avoids relying on that fallback). */
+function parseValueAreaPct(raw: string): number | null {
+  const match = raw.trim().match(/^(\d{1,3}(?:\.\d+)?)\s*%?$/);
+  const pct = match?.[1] ? Number(match[1]) : NaN;
+  return Number.isFinite(pct) && pct > 0 && pct <= 100 ? pct / 100 : null;
+}
+
 /** A stated "<n>% value area" (either word order) near the literal phrase "value area",
- *  scanned across the free-text fields most likely to describe it. Not present in any
- *  structured field today — this is the narrowest confident read of prose, not a guess. */
-function deriveValueAreaPct(def: StrategyDefinition): number | null {
+ *  scanned across the free-text fields most likely to describe it — the fallback for
+ *  strategies saved before setup.value_area_pct existed, or that never filled it in. */
+function scanValueAreaPct(def: StrategyDefinition): number | null {
   const text = [
     section(def, "setup", "setup_conditions"),
     section(def, "bias", "bias_method"),
@@ -173,6 +183,15 @@ function deriveValueAreaPct(def: StrategyDefinition): number | null {
     }
   }
   return null;
+}
+
+/** setup.value_area_pct is the dedicated field ("70" or "70%"); the free-text scan is only a
+ *  fallback when the field is EMPTY — a filled-but-unparseable field is a blocker on its own
+ *  terms, not a reason to silently fall through to a prose guess. */
+function deriveValueAreaPct(def: StrategyDefinition): number | null {
+  const fieldRaw = section(def, "setup", "value_area_pct");
+  if (fieldRaw) return parseValueAreaPct(fieldRaw);
+  return scanValueAreaPct(def);
 }
 
 /** Stop distance in raw price points (positive), from a static stop_formula. Null if the
@@ -207,10 +226,11 @@ function deriveTargetRMultiple(def: StrategyDefinition, stopPoints: number | nul
 
 /**
  * Compiles a WIT wire StrategyConfig. Real TSSE data fills config_version/data.window/costs.*
- * and (new in this pass) the 5 fields the engine HONOURS that the strategy form already
- * captures — chart.timeframe, entry.long_entry, stop_loss.stop_formula,
- * profit_target.target_formula, and value-area prose. Every other section is either a
- * single-legal-value hard gate or a declared-but-not-applied field the engine bakes and merely
+ * and the 5 fields the engine HONOURS that the strategy form already captures —
+ * chart.timeframe, entry.long_entry, stop_loss.stop_formula, profit_target.target_formula, and
+ * setup.value_area_pct (with a free-text scan as a fallback for strategies that never filled
+ * the dedicated field in). Every other section is either a single-legal-value hard gate or a
+ * declared-but-not-applied field the engine bakes and merely
  * discloses — both transcribed from the contract's own documented values, not invented. A field
  * that can't be confidently read from the strategy blocks the submit with a message naming the
  * form section to fix, per Jim's decision: no defaults, no guessing.
@@ -250,8 +270,7 @@ export function compileWireConfig(input: WireConfigInput): {
   if (valueAreaPct === null) {
     blockers.push({
       field: "setup_entry.params.value_area_pct",
-      message:
-        'Value-area percentage is required — state it explicitly in the Setup section (e.g. "70% value area").',
+      message: "Value area % is required — set it in the Setup section.",
     });
   }
 
@@ -304,7 +323,7 @@ export function compileWireConfig(input: WireConfigInput): {
       params: {
         range_start: "09:30", // matches the schema's own stated session instants
         range_end: "11:00",
-        value_area_pct: valueAreaPct ?? 0, // HONOURED — from setup/bias prose, or BLOCKED above
+        value_area_pct: valueAreaPct ?? 0, // HONOURED — from setup.value_area_pct (or prose fallback), or BLOCKED above
         granularity: granularity ?? "", // HONOURED — from chart.timeframe, or BLOCKED above
       },
     },
