@@ -14,7 +14,12 @@ export const RULE_FIELDS = [
     label: "Short entry",
     placeholder: "close < sma(close, 20)",
   },
-  { section: "stop_loss", key: "stop_formula", label: "Stop loss", placeholder: "2 * atr(14)" },
+  {
+    section: "stop_loss",
+    key: "stop_formula",
+    label: "Stop (ticks)",
+    placeholder: "8 — a plain number of ticks",
+  },
   {
     section: "profit_target",
     key: "target_formula",
