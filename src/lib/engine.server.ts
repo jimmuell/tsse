@@ -14,7 +14,7 @@ export type EngineSubmitOutcome = {
 };
 
 function requireEngineConfig(): { baseUrl: string; serviceKey: string } {
-  const baseUrl = process.env["BACKTEST_ENGINE_URL"];
+  const baseUrl = process.env["ENGINE_URL"];
   const serviceKey = process.env["WIT_ENGINE_SERVICE_KEY"];
   if (!baseUrl || !serviceKey) {
     throw new Error(

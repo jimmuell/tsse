@@ -25,7 +25,7 @@ export type SubmitEngineResult = {
 
 /** True when the engine URL and WIT service key are present, so the UI can explain what is missing. */
 export const engineStatus = createServerFn({ method: "GET" }).handler(async () => ({
-  configured: Boolean(process.env["BACKTEST_ENGINE_URL"] && process.env["WIT_ENGINE_SERVICE_KEY"]),
+  configured: Boolean(process.env["ENGINE_URL"] && process.env["WIT_ENGINE_SERVICE_KEY"]),
 }));
 
 export const submitEngineBacktest = createServerFn({ method: "POST" })
