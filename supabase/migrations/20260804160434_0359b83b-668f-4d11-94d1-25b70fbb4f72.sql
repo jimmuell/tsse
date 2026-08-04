@@ -1,0 +1,2 @@
+ALTER TABLE public.backtest_jobs ADD COLUMN IF NOT EXISTS engine_run_id text;
+CREATE UNIQUE INDEX IF NOT EXISTS backtest_jobs_engine_run_id_key ON public.backtest_jobs (engine_run_id) WHERE engine_run_id IS NOT NULL;
