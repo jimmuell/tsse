@@ -326,11 +326,11 @@ export function BacktestPanel({
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="from">From date (optional)</Label>
+            <Label htmlFor="from">From date</Label>
             <Input id="from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="to">To date (optional)</Label>
+            <Label htmlFor="to">To date</Label>
             <Input id="to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
           </div>
           <div className="flex items-end gap-6">
