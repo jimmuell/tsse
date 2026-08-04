@@ -373,9 +373,14 @@ export function BacktestPanel({
               "long_x = …; short_x = …" for side-specific stops and targets.
             </p>
           </div>
-          <Button variant="ghost" size="sm" onClick={resetRules}>
-            Reset to spec
-          </Button>
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <Button variant="ghost" size="sm" onClick={resetRules}>
+              Reset to spec
+            </Button>
+            <Button variant="outline" size="sm" onClick={applyVerificationDefaults}>
+              Load verification defaults
+            </Button>
+          </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           {RULE_FIELDS.map((f) => {
