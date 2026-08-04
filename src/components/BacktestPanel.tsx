@@ -166,8 +166,44 @@ export function BacktestPanel({
     if (!datasetId && datasets.length > 0) setDatasetId(datasets[0]!.id);
   }, [datasets.length]);
 
+  /** Re-open an archived run in the results area below. */
+  async function loadRun(runId: string) {
+    const { data, error } = await supabase
+      .from("backtest_runs")
+      .select("id, dataset_name, stats, equity, trades, config, compiled")
+      .eq("id", runId)
+      .single();
+    if (error || !data) {
+      toast.error("Could not load that run.");
+      return;
+    }
+    const cfg = (data.config ?? {}) as Record<string, unknown>;
+    const meta = (data.compiled ?? {}) as Record<string, unknown>;
+    const trades = (data.trades ?? []) as unknown as Trade[];
+    setResult({
+      stats: data.stats as never,
+      equity: (data.equity ?? []) as unknown as EquityPoint[],
+      trades,
+      datasetName: data.dataset_name,
+      barsUsed: typeof cfg["barsUsed"] === "number" ? (cfg["barsUsed"] as number) : 0,
+      barsTruncated: false,
+      tradesTruncated: false,
+      totalTrades: trades.length,
+      issues: [],
+      rangeStart: (meta["rangeStart"] as number | null) ?? null,
+      rangeEnd: (meta["rangeEnd"] as number | null) ?? null,
+    });
+  }
 
-
+  async function deleteRun(runId: string) {
+    const { error } = await supabase.from("backtest_runs").delete().eq("id", runId);
+    if (error) {
+      toast.error("Could not delete that run.");
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: ["backtest-runs", strategyId] });
+    toast.success("Run deleted.");
+  }
 
 
   const runsQuery = useQuery({
