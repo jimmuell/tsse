@@ -298,20 +298,27 @@ export function BacktestPanel({
       </div>
 
       <div className="rounded-lg border border-border bg-card p-5">
+        <div className="mb-4 rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+          <p className="font-medium text-foreground">What the engine actually applies</p>
+          <p className="mt-1">
+            The audit runs on ES/MES at a fixed <strong>1 contract</strong> per trade — position
+            sizing, starting capital and long/short toggles are not applied. Commission, slippage,
+            the date window, the chart timeframe and the executable rules above are honoured.
+          </p>
+        </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-1.5">
-            <Label htmlFor="symbol">Symbol</Label>
-            <Input id="symbol" value={symbol} onChange={(e) => setSymbol(e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="timeframe">Timeframe</Label>
+            <Label htmlFor="timeframe">Chart timeframe</Label>
             <Input
               id="timeframe"
-              value={timeframe}
-              onChange={(e) => setTimeframe(e.target.value)}
-              placeholder="1m, 5m, 1h"
+              value={overrides["chart.timeframe"] ?? ""}
+              onChange={(e) => setRule("chart.timeframe", e.target.value)}
+              placeholder="1m or 5m"
             />
+            <p className="text-[11px] text-muted-foreground">
+              Writes the spec&apos;s Chart timeframe. The engine accepts 1-minute or 5-minute only.
+            </p>
           </div>
           {!engineReady ? (
             <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
@@ -321,27 +328,7 @@ export function BacktestPanel({
             </div>
           ) : null}
           <div className="space-y-1.5">
-            <Label htmlFor="capital">Starting capital</Label>
-            <Input
-              id="capital"
-              type="number"
-              value={config.capital}
-              onChange={(e) => setConfig({ ...config, capital: Number(e.target.value) || 0 })}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="qty">Default quantity</Label>
-            <Input
-              id="qty"
-              type="number"
-              value={config.defaultQuantity}
-              onChange={(e) =>
-                setConfig({ ...config, defaultQuantity: Number(e.target.value) || 0 })
-              }
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="commission">Commission per unit</Label>
+            <Label htmlFor="commission">Commission per side</Label>
             <Input
               id="commission"
               type="number"
@@ -350,7 +337,7 @@ export function BacktestPanel({
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="slippage">Slippage per fill</Label>
+            <Label htmlFor="slippage">Slippage per fill (price)</Label>
             <Input
               id="slippage"
               type="number"
@@ -383,26 +370,8 @@ export function BacktestPanel({
               <p className="text-xs text-destructive">From date is after To date.</p>
             </div>
           )}
-
-          <div className="flex items-end gap-6">
-            <div className="flex items-center gap-2">
-              <Switch
-                id="long"
-                checked={config.allowLong}
-                onCheckedChange={(v) => setConfig({ ...config, allowLong: v })}
-              />
-              <Label htmlFor="long">Long</Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                id="short"
-                checked={config.allowShort}
-                onCheckedChange={(v) => setConfig({ ...config, allowShort: v })}
-              />
-              <Label htmlFor="short">Short</Label>
-            </div>
-          </div>
         </div>
+
 
         <div className="mt-5 flex items-center gap-3">
           <Button
