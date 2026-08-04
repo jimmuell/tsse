@@ -40,3 +40,8 @@ supabase/.temp/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Secrets — never track these; TEST_EMAIL/TEST_PASSWORD live in .env
+.env
+.env.*
+!.env.example

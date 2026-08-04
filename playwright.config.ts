@@ -1,4 +1,13 @@
+import { existsSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
+
+// TEST_EMAIL / TEST_PASSWORD (and any other local test config) live in .env, which is
+// gitignored and never auto-loaded by `playwright test` itself — load it explicitly so
+// `bun run e2e` works the same way `bun run dev` does. No-op when .env is absent (CI
+// injects these as real env vars instead).
+if (existsSync(".env")) {
+  process.loadEnvFile(".env");
+}
 
 const PORT = 8080;
 const BASE_URL = `http://localhost:${PORT}`;

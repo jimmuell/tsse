@@ -25,6 +25,10 @@ test("sign in and reach the backtest run form", async ({ page }) => {
   }
 
   await page.goto("/auth");
+  // On a freshly started dev server, Vite's dependency pre-bundling optimizer does a
+  // one-time full-page reload shortly after first load — wait it out before interacting,
+  // or a submit racing that reload looks like a silent auth failure.
+  await page.waitForLoadState("networkidle");
   await page.getByLabel("Email").fill(TEST_EMAIL);
   await page.getByLabel("Password").fill(TEST_PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
