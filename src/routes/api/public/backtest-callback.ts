@@ -75,8 +75,13 @@ export const Route = createFileRoute("/api/public/backtest-callback")({
 
         const raw = await request.text();
         const signature = request.headers.get("x-wit-signature");
-        if (!signature || !timingSafeEqual(signature.replace(/^sha256=/i, ""), await hmacHex(secret, raw))) {
-          console.warn("[wit-callback] rejected a request with a missing or invalid X-WIT-Signature");
+        if (
+          !signature ||
+          !timingSafeEqual(signature.replace(/^sha256=/i, ""), await hmacHex(secret, raw))
+        ) {
+          console.warn(
+            "[wit-callback] rejected a request with a missing or invalid X-WIT-Signature",
+          );
           return new Response("Invalid signature", { status: 401 });
         }
 

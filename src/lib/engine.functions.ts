@@ -75,7 +75,9 @@ export const submitEngineBacktest = createServerFn({ method: "POST" })
     // follow redirects, so this must be the Supabase functions domain, never the app origin.
     const supabaseUrl = process.env["SUPABASE_URL"];
     if (!supabaseUrl) {
-      throw new Error("SUPABASE_URL is not configured — the engine callback needs a *.supabase.co host.");
+      throw new Error(
+        "SUPABASE_URL is not configured — the engine callback needs a *.supabase.co host.",
+      );
     }
     const callbackUrl = `${supabaseUrl.replace(/\/+$/, "")}/functions/v1/backtest-callback`;
 
@@ -94,7 +96,10 @@ export const submitEngineBacktest = createServerFn({ method: "POST" })
       return { jobId: job.id };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      await supabase.from("backtest_jobs").update({ status: "failed", error: message }).eq("id", job.id);
+      await supabase
+        .from("backtest_jobs")
+        .update({ status: "failed", error: message })
+        .eq("id", job.id);
       throw new Error(message);
     }
   });
