@@ -147,6 +147,38 @@ function AuthPage() {
             Continue with Google
           </Button>
 
+          <Button
+            type="button"
+            variant="secondary"
+            className="mt-2 w-full"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                const creds = { email: "test@tsse.com", password: "12345678" };
+                let { error } = await supabase.auth.signInWithPassword(creds);
+                if (error) {
+                  const signUp = await supabase.auth.signUp({
+                    ...creds,
+                    options: { emailRedirectTo: window.location.origin },
+                  });
+                  if (signUp.error) throw signUp.error;
+                  if (!signUp.data.session) {
+                    const retry = await supabase.auth.signInWithPassword(creds);
+                    if (retry.error) throw retry.error;
+                  }
+                }
+                toast.success("Signed in as test user");
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : "Auto sign-in failed");
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            Auto sign in (test user)
+          </Button>
+
           <button
             type="button"
             className="mt-4 w-full text-xs text-muted-foreground underline-offset-2 hover:underline"
