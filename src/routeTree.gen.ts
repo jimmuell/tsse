@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as DatasetsIndexRouteImport } from './routes/datasets/index'
+import { Route as RunsIndexRouteImport } from './routes/runs/index'
 import { Route as StrategiesIdRouteImport } from './routes/strategies/$id'
 import { Route as StrategiesNewRouteImport } from './routes/strategies/new'
 import { Route as ApiPublicBacktestCallbackRouteImport } from './routes/api/public/backtest-callback'
@@ -29,6 +30,11 @@ const AuthRoute = AuthRouteImport.update({
 const DatasetsIndexRoute = DatasetsIndexRouteImport.update({
   id: '/datasets/',
   path: '/datasets/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RunsIndexRoute = RunsIndexRouteImport.update({
+  id: '/runs/',
+  path: '/runs/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StrategiesIdRoute = StrategiesIdRouteImport.update({
@@ -54,6 +60,7 @@ export interface FileRoutesByFullPath {
   '/strategies/$id': typeof StrategiesIdRoute
   '/strategies/new': typeof StrategiesNewRoute
   '/datasets/': typeof DatasetsIndexRoute
+  '/runs/': typeof RunsIndexRoute
   '/api/public/backtest-callback': typeof ApiPublicBacktestCallbackRoute
 }
 export interface FileRoutesByTo {
@@ -62,6 +69,7 @@ export interface FileRoutesByTo {
   '/strategies/$id': typeof StrategiesIdRoute
   '/strategies/new': typeof StrategiesNewRoute
   '/datasets': typeof DatasetsIndexRoute
+  '/runs': typeof RunsIndexRoute
   '/api/public/backtest-callback': typeof ApiPublicBacktestCallbackRoute
 }
 export interface FileRoutesById {
@@ -71,6 +79,7 @@ export interface FileRoutesById {
   '/strategies/$id': typeof StrategiesIdRoute
   '/strategies/new': typeof StrategiesNewRoute
   '/datasets/': typeof DatasetsIndexRoute
+  '/runs/': typeof RunsIndexRoute
   '/api/public/backtest-callback': typeof ApiPublicBacktestCallbackRoute
 }
 export interface FileRouteTypes {
@@ -81,6 +90,7 @@ export interface FileRouteTypes {
     | '/strategies/$id'
     | '/strategies/new'
     | '/datasets/'
+    | '/runs/'
     | '/api/public/backtest-callback'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -89,6 +99,7 @@ export interface FileRouteTypes {
     | '/strategies/$id'
     | '/strategies/new'
     | '/datasets'
+    | '/runs'
     | '/api/public/backtest-callback'
   id:
     | '__root__'
@@ -97,6 +108,7 @@ export interface FileRouteTypes {
     | '/strategies/$id'
     | '/strategies/new'
     | '/datasets/'
+    | '/runs/'
     | '/api/public/backtest-callback'
   fileRoutesById: FileRoutesById
 }
@@ -106,6 +118,7 @@ export interface RootRouteChildren {
   StrategiesIdRoute: typeof StrategiesIdRoute
   StrategiesNewRoute: typeof StrategiesNewRoute
   DatasetsIndexRoute: typeof DatasetsIndexRoute
+  RunsIndexRoute: typeof RunsIndexRoute
   ApiPublicBacktestCallbackRoute: typeof ApiPublicBacktestCallbackRoute
 }
 
@@ -130,6 +143,13 @@ declare module '@tanstack/react-router' {
       path: '/datasets'
       fullPath: '/datasets/'
       preLoaderRoute: typeof DatasetsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/runs/': {
+      id: '/runs/'
+      path: '/runs'
+      fullPath: '/runs/'
+      preLoaderRoute: typeof RunsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/strategies/$id': {
@@ -162,6 +182,7 @@ const rootRouteChildren: RootRouteChildren = {
   StrategiesIdRoute: StrategiesIdRoute,
   StrategiesNewRoute: StrategiesNewRoute,
   DatasetsIndexRoute: DatasetsIndexRoute,
+  RunsIndexRoute: RunsIndexRoute,
   ApiPublicBacktestCallbackRoute: ApiPublicBacktestCallbackRoute,
 }
 export const routeTree = rootRouteImport
