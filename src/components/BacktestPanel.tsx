@@ -83,6 +83,7 @@ export function BacktestPanel({
   // timeframe is the spec's chart.timeframe (carried in `overrides`), not a second field.
   const symbol = "ES";
   const [jobId, setJobId] = useState<string | null>(null);
+  const [datasetId, setDatasetId] = useState<string>("");
   const [config, setConfig] = useState<BacktestConfig>(DEFAULT_CONFIG);
   const [running, setRunning] = useState(false);
   const [from, setFrom] = useState(DEFAULT_FROM);
