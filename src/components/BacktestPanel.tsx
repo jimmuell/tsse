@@ -427,21 +427,27 @@ export function BacktestPanel({
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Stat
               label="Net P&L"
-              value={money(result.stats.netPnl)}
-              tone={result.stats.netPnl >= 0 ? "up" : "down"}
+              value={money(num(result.stats?.netPnl))}
+              tone={num(result.stats?.netPnl) >= 0 ? "up" : "down"}
             />
-            <Stat label="Return" value={`${result.stats.returnPct.toFixed(2)}%`} />
-            <Stat label="Trades" value={String(result.stats.trades)} />
-            <Stat label="Win rate" value={`${result.stats.winRate.toFixed(1)}%`} />
+            <Stat label="Return" value={`${num(result.stats?.returnPct).toFixed(2)}%`} />
+            <Stat label="Trades" value={String(result.stats?.trades ?? result.trades.length)} />
+            <Stat label="Win rate" value={`${num(result.stats?.winRate).toFixed(1)}%`} />
             <Stat
               label="Profit factor"
-              value={result.stats.profitFactor === null ? "—" : result.stats.profitFactor.toFixed(2)}
+              value={
+                result.stats?.profitFactor == null
+                  ? "—"
+                  : Number(result.stats.profitFactor).toFixed(2)
+              }
             />
-            <Stat label="Expectancy" value={money(result.stats.expectancy)} />
-            <Stat label="Avg win" value={money(result.stats.avgWin)} />
+            <Stat label="Expectancy" value={money(num(result.stats?.expectancy))} />
+            <Stat label="Avg win" value={money(num(result.stats?.avgWin))} />
             <Stat
               label="Max drawdown"
-              value={`${money(result.stats.maxDrawdown)} (${result.stats.maxDrawdownPct.toFixed(1)}%)`}
+              value={`${money(num(result.stats?.maxDrawdown))} (${num(
+                result.stats?.maxDrawdownPct,
+              ).toFixed(1)}%)`}
               tone="down"
             />
           </div>
