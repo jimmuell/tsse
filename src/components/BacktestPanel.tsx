@@ -123,8 +123,8 @@ export function BacktestPanel({
 
   function resetAll() {
     setConfig(DEFAULT_CONFIG);
-    setFrom("");
-    setTo("");
+    setFrom(DEFAULT_FROM);
+    setTo(DEFAULT_TO);
     resetRules();
     toast.success("Settings reset to defaults.");
   }
