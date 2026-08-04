@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { normalizeDefinition } from "@/lib/strategy-schema";
+import { applyOverrides } from "@/lib/backtest/rules";
 import { compileWireConfig } from "./wit/wire-config";
 
 const SubmitSchema = z.object({
@@ -18,6 +19,8 @@ const SubmitSchema = z.object({
   }),
   from: z.string().min(1),
   to: z.string().min(1),
+  /** Current on-screen edits, keyed "section.key". The engine must audit what the user sees. */
+  rules: z.record(z.string(), z.string()).optional(),
 });
 
 export type SubmitEngineResult = {
