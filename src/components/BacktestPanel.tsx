@@ -122,6 +122,31 @@ export function BacktestPanel({
     setOverrides(initialOverrides(strategyId, { ...definition }));
   }
 
+  /** One-click ORB/value-area verification setup used for full-history audit runs. */
+  function applyVerificationDefaults() {
+    const next: RuleOverrides = {
+      "entry.long_entry": "close > vah",
+      "entry.short_entry": "close < val",
+      "stop_loss.stop_formula": "8",
+      "profit_target.target_formula": "2 * risk",
+      "position_sizing.sizing_formula": "",
+      "exit.exit_conditions": "",
+      "chart.timeframe": "5m",
+      "setup.value_area_pct": "70",
+    };
+    setOverrides(next);
+    try {
+      window.localStorage.setItem(`tsse:rules:${strategyId}`, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+    setConfig(DEFAULT_CONFIG);
+    setFrom("2008-01-02");
+    setTo(new Date().toISOString().slice(0, 10));
+    toast.success("Verification defaults loaded.");
+  }
+
+
   const compiled = useMemo(
     () => compileStrategy(applyOverrides(definition, overrides)),
     [definition, overrides],
@@ -348,9 +373,14 @@ export function BacktestPanel({
               "long_x = …; short_x = …" for side-specific stops and targets.
             </p>
           </div>
-          <Button variant="ghost" size="sm" onClick={resetRules}>
-            Reset to spec
-          </Button>
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <Button variant="ghost" size="sm" onClick={resetRules}>
+              Reset to spec
+            </Button>
+            <Button variant="outline" size="sm" onClick={applyVerificationDefaults}>
+              Load verification defaults
+            </Button>
+          </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           {RULE_FIELDS.map((f) => {
