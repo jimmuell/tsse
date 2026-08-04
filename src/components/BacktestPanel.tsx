@@ -517,10 +517,20 @@ export function BacktestPanel({
         </div>
 
         <div className="mt-5 flex items-center gap-3">
-          <Button onClick={() => void run()} disabled={running || !compiled.runnable} className="gap-1.5">
+          <Button
+            onClick={() => void run()}
+            disabled={running || !compiled.runnable || (source === "engine" && !engineReady)}
+            className="gap-1.5"
+          >
             {running ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
             Run backtest
           </Button>
+          {running && jobId ? (
+            <p className="text-xs text-muted-foreground">
+              Engine is working on this run{job?.status ? ` (${job.status})` : ""} — the results
+              land here automatically.
+            </p>
+          ) : null}
           <Button variant="outline" size="sm" className="gap-1.5" onClick={resetAll}>
             <RotateCcw className="size-4" />
             Reset to defaults
