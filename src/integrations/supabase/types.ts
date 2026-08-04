@@ -19,7 +19,6 @@ export type Database = {
           config: Json
           created_at: string
           dataset_id: string | null
-          engine_run_id: string | null
           engine_version: string | null
           error: string | null
           id: string
@@ -40,7 +39,6 @@ export type Database = {
           config?: Json
           created_at?: string
           dataset_id?: string | null
-          engine_run_id?: string | null
           engine_version?: string | null
           error?: string | null
           id?: string
@@ -61,7 +59,6 @@ export type Database = {
           config?: Json
           created_at?: string
           dataset_id?: string | null
-          engine_run_id?: string | null
           engine_version?: string | null
           error?: string | null
           id?: string
