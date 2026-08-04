@@ -1,1 +1,7 @@
 project_id = "kegqooezgdgbmmukfuiy"
+
+# The WIT engine calls this with no Supabase user session — its auth is the X-WIT-Signature
+# HMAC, verified inside the function itself. JWT verification must be off or Supabase rejects
+# the call (401) before the function ever runs.
+[functions.backtest-callback]
+verify_jwt = false
