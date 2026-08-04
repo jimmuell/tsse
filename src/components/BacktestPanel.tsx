@@ -136,6 +136,15 @@ export function BacktestPanel({
     toast.success("Settings reset to defaults.");
   }
 
+  const boundsFrom = selectedDataset?.start_at ? selectedDataset.start_at.slice(0, 10) : "";
+  const boundsTo = selectedDataset?.end_at ? selectedDataset.end_at.slice(0, 10) : "";
+  const fromOutOfRange = Boolean(from && boundsFrom && from < boundsFrom);
+  const toOutOfRange = Boolean(to && boundsTo && to > boundsTo);
+  const invertedRange = Boolean(from && to && from > to);
+  const rangeIssue = fromOutOfRange || toOutOfRange || invertedRange;
+
+
+
 
   const runsQuery = useQuery({
     queryKey: ["backtest-runs", strategyId],
