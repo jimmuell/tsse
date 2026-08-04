@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Columns2, History, Trash2 } from "lucide-react";
+import { ArrowLeft, Columns2, History, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AppShell } from "@/components/AppShell";
@@ -215,6 +215,15 @@ function RunsPage() {
         <>
           {showCompare && compared.length >= 2 ? (
             <div className="mt-8 space-y-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="-ml-2 gap-1.5"
+                onClick={() => setShowCompare(false)}
+              >
+                <ArrowLeft className="size-4" />
+                Back to runs
+              </Button>
               <div className="rounded-lg border border-border bg-card p-4">
                 <p className="mb-3 text-sm font-medium">Equity curves</p>
                 <div className="h-64">
