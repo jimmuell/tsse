@@ -35,7 +35,7 @@ export const RULE_FIELDS = [
   {
     section: "exit",
     key: "exit_conditions",
-    label: "Exit rule (optional)",
+    label: "Exit rule (not applied)",
     placeholder: "close < sma(close, 20)",
   },
 ] as const;
