@@ -56,6 +56,18 @@ const ALL_OVERRIDE_FIELDS = [...RULE_FIELDS, ...EXTRA_OVERRIDE_FIELDS] as Readon
 
 export type RuleOverrides = Record<string, string>;
 
+/**
+ * Starting values used only when a field is empty on a fresh strategy — a stored
+ * override or a value from the saved spec always wins.
+ */
+const FIELD_DEFAULTS: RuleOverrides = {
+  "entry.long_entry": "close > vah",
+  "entry.short_entry": "close < val",
+  "stop_loss.stop_formula": "8",
+  "profit_target.target_formula": "2 * risk",
+  "chart.timeframe": "5m",
+};
+
 export function overrideKeyOf(f: { section: string; key: string }): string {
   return `${f.section}.${f.key}`;
 }
