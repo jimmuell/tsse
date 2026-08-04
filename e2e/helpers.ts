@@ -46,6 +46,12 @@ export async function openStrategyBacktestTab(page: Page, name = STRATEGY_NAME):
   await expect(page).toHaveURL(/\/strategies\/.+/);
   await page.getByRole("tab", { name: "Backtest" }).click();
   await expect(page.getByLabel("Long entry")).toBeVisible();
+  // The Run button is disabled until the engine-status query resolves (defaults to "not
+  // ready" while loading), which looks exactly like a real blocker if checked too early.
+  // Wait for the button to leave that transient state before any test touches it.
+  await expect(page.getByText("The engine is not connected yet")).toHaveCount(0, {
+    timeout: 15_000,
+  });
 }
 
 export async function setDateWindow(page: Page, from = FIXED_FROM, to = FIXED_TO): Promise<void> {
@@ -89,7 +95,14 @@ export function previousRunsPanel(page: Page) {
 
 export async function previousRunsCount(page: Page): Promise<number> {
   const panel = previousRunsPanel(page);
-  if (!(await panel.isVisible().catch(() => false))) return 0;
+  // The runs query hasn't necessarily resolved on the first check — an unloaded query
+  // and a genuinely empty list both render as "not visible yet". Wait out the loading
+  // case; only settle for 0 once the panel has had a real chance to appear.
+  try {
+    await expect(panel).toBeVisible({ timeout: 10_000 });
+  } catch {
+    return 0;
+  }
   return panel.locator("ul > li").count();
 }
 

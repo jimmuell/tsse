@@ -3,34 +3,25 @@
 ## How a test signs in
 
 `/auth` is real Supabase email/password auth (`supabase.auth.signInWithPassword`) — the
-same form a real user fills in. There is no dev/test login bypass in this app.
+same form a real user fills in. There is no dev/test login bypass on the published app
+(a dev-only "Auto sign in" button exists but is stripped from production builds).
 
 Tests source credentials from env, never hardcode them:
 
 - `TEST_EMAIL`
 - `TEST_PASSWORD`
 
-Set these in your shell or an untracked `.env.e2e` before running `bun run e2e`.
+Put these in `.env` or `.env.e2e` (both gitignored, both loaded automatically by
+`playwright.config.ts`) — `.env.e2e` is the place for e2e-only secrets you don't want
+mixed into the app's own `.env`.
 
-## Reaching the run screen
+## The fixture strategy
 
-The "run screen" is the Backtest tab on a strategy's detail page
-(`/strategies/$id`, `BacktestPanel`). It requires a strategy that:
-
-- belongs to the signed-in test account (RLS-scoped), and
-- has a saved, non-`failed` specification (`definition` populated) — the tab renders
-  the form as soon as a definition exists, no validation/completeness threshold
-  required.
-
-The smoke test picks whichever strategy is first in the signed-in account's
-dashboard list — it does not depend on a specific ID.
-
-**Seeding**: this repo has no seed script and no local Supabase stack (this project
-talks to the hosted Lovable Cloud project directly — see `supabase/config.toml`).
-For now, the test account must already own at least one strategy, created the
-normal way (sign in → "New strategy" → paste/extract a description). Provisioning
-this automatically (a dedicated test account + a seeded strategy row) is left for a
-follow-up — see WIT-TEST-01 report for why it wasn't done here.
+Tests open the strategy named **"E2E Test ORB"** by name (not "whichever strategy is
+first") — a fixed reference spec on the `TEST_EMAIL` account with known saved values
+(5min timeframe, `close > vah` / `close < val` entries, 8-tick stop, `2 * risk` target,
+70% value area). Tests only ever change run-screen _overrides_; none may edit and save
+the strategy's own specification — the fixture must survive the suite unchanged.
 
 ## Running
 
@@ -38,4 +29,19 @@ follow-up — see WIT-TEST-01 report for why it wasn't done here.
 bun run e2e
 ```
 
-Runs headless Chromium against `bun run dev` (started automatically on :8080).
+Defaults to the published app (`https://trade-spec-scribe.lovable.app`), which has the
+engine secrets — no local server is started. Set `E2E_BASE_URL=http://localhost:8080` to
+run against a local `bun run dev` instead (started automatically); that mode also needs
+`ENGINE_URL` / `WIT_ENGINE_SERVICE_KEY` configured locally to actually reach the engine.
+
+Run serially (`--workers=1`) — the suite writes real rows to the shared test account's
+run history and reads "Previous runs" counts, so concurrent tests would race each other.
+
+## Known gaps (see WIT-TEST-03 report for the full reasoning)
+
+- **Value area %** has no override field on the run screen at all — it's only editable
+  on the strategy's Specification tab, and editing that would mutate the shared
+  fixture. No test covers blocking a bad value area % from the run screen.
+- **Bad exit rule blocking** isn't tested — the exit rule field has no effect on the
+  engine at all (see `exit-rule-noop.spec.ts`), so there's nothing for a bad value in
+  that field to block.

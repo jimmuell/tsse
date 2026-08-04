@@ -1,16 +1,21 @@
 import { existsSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
 
-// TEST_EMAIL / TEST_PASSWORD (and any other local test config) live in .env, which is
-// gitignored and never auto-loaded by `playwright test` itself — load it explicitly so
-// `bun run e2e` works the same way `bun run dev` does. No-op when .env is absent (CI
-// injects these as real env vars instead).
-if (existsSync(".env")) {
-  process.loadEnvFile(".env");
+// App config (.env) and/or e2e-only secrets (.env.e2e, e.g. TEST_EMAIL/TEST_PASSWORD) —
+// both gitignored, neither auto-loaded by `playwright test` itself, so load them
+// explicitly. .env.e2e loads second so it can supply e2e-only keys without touching
+// .env. No-op when a file is absent (CI injects these as real env vars instead).
+for (const envFile of [".env", ".env.e2e"]) {
+  if (existsSync(envFile)) {
+    process.loadEnvFile(envFile);
+  }
 }
 
-const PORT = 8080;
-const BASE_URL = `http://localhost:${PORT}`;
+// Defaults to the published app, which has the engine secrets this laptop doesn't carry.
+// Set E2E_BASE_URL=http://localhost:8080 to run against a local dev server instead — that
+// mode still needs ENGINE_URL / WIT_ENGINE_SERVICE_KEY configured locally to reach the engine.
+const BASE_URL = process.env["E2E_BASE_URL"] || "https://trade-spec-scribe.lovable.app";
+const isLocal = /^https?:\/\/localhost(:|\/|$)/.test(BASE_URL);
 
 export default defineConfig({
   testDir: "./e2e",
@@ -24,10 +29,16 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-  webServer: {
-    command: "bun run dev",
-    url: BASE_URL,
-    reuseExistingServer: !process.env["CI"],
-    timeout: 60_000,
-  },
+  // Only manage a local dev server when actually testing against localhost — pointed at the
+  // published app, there is nothing local to start.
+  ...(isLocal
+    ? {
+        webServer: {
+          command: "bun run dev",
+          url: BASE_URL,
+          reuseExistingServer: !process.env["CI"],
+          timeout: 60_000,
+        },
+      }
+    : {}),
 });

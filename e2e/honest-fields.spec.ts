@@ -30,3 +30,9 @@ test('T14: stop field is "Stop (ticks)" and position size field is "Position siz
   await expect(page.getByLabel("Stop (ticks)", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Position size (not applied)", { exact: true })).toBeVisible();
 });
+
+test('T15: exit rule field is labelled "Exit rule (not applied)"', async ({ page }) => {
+  await openStrategyBacktestTab(page);
+
+  await expect(page.getByLabel("Exit rule (not applied)", { exact: true })).toBeVisible();
+});
