@@ -147,37 +147,50 @@ function AuthPage() {
             Continue with Google
           </Button>
 
-          <Button
-            type="button"
-            variant="secondary"
-            className="mt-2 w-full"
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              try {
-                const creds = { email: "test@tsse.com", password: "12345678" };
-                let { error } = await supabase.auth.signInWithPassword(creds);
-                if (error) {
-                  const signUp = await supabase.auth.signUp({
-                    ...creds,
-                    options: { emailRedirectTo: window.location.origin },
-                  });
-                  if (signUp.error) throw signUp.error;
-                  if (!signUp.data.session) {
-                    const retry = await supabase.auth.signInWithPassword(creds);
-                    if (retry.error) throw retry.error;
-                  }
+          {import.meta.env.DEV ? (
+            <Button
+              type="button"
+              variant="secondary"
+              className="mt-2 w-full"
+              disabled={busy}
+              onClick={async () => {
+                // Dev/preview only (see the import.meta.env.DEV guard above) — never bundled
+                // into a production build, so no test credential ships in the public app.
+                // Configure VITE_TEST_EMAIL / VITE_TEST_PASSWORD in this environment to use it.
+                const testEmail = import.meta.env["VITE_TEST_EMAIL"];
+                const testPassword = import.meta.env["VITE_TEST_PASSWORD"];
+                if (!testEmail || !testPassword) {
+                  toast.error(
+                    "VITE_TEST_EMAIL / VITE_TEST_PASSWORD are not set for this environment.",
+                  );
+                  return;
                 }
-                toast.success("Signed in as test user");
-              } catch (err) {
-                toast.error(err instanceof Error ? err.message : "Auto sign-in failed");
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            Auto sign in (test user)
-          </Button>
+                setBusy(true);
+                try {
+                  const creds = { email: testEmail, password: testPassword };
+                  let { error } = await supabase.auth.signInWithPassword(creds);
+                  if (error) {
+                    const signUp = await supabase.auth.signUp({
+                      ...creds,
+                      options: { emailRedirectTo: window.location.origin },
+                    });
+                    if (signUp.error) throw signUp.error;
+                    if (!signUp.data.session) {
+                      const retry = await supabase.auth.signInWithPassword(creds);
+                      if (retry.error) throw retry.error;
+                    }
+                  }
+                  toast.success("Signed in as test user");
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Auto sign-in failed");
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              Auto sign in (test user)
+            </Button>
+          ) : null}
 
           <button
             type="button"

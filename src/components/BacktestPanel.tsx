@@ -405,6 +405,12 @@ export function BacktestPanel({
                     {issue.message}
                   </p>
                 ) : null}
+                {f.key === "exit_conditions" ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    The engine exits on the stop, the target, or the end of available data. This
+                    expression is recorded with the run but is not applied.
+                  </p>
+                ) : null}
               </div>
             );
           })}
