@@ -158,9 +158,6 @@ export function BacktestPanel({
   const coverageTo = selectedDataset?.end_at
     ? new Date(selectedDataset.end_at).toISOString().slice(0, 10)
     : null;
-  const outsideCoverage = Boolean(
-    coverageFrom && coverageTo && ((from && from < coverageFrom) || (to && to > coverageTo)),
-  );
 
   useEffect(() => {
     if (!datasetId && datasets.length > 0) setDatasetId(datasets[0]!.id);
@@ -185,7 +182,7 @@ export function BacktestPanel({
       equity: (data.equity ?? []) as unknown as EquityPoint[],
       trades,
       datasetName: data.dataset_name,
-      barsUsed: typeof cfg["barsUsed"] === "number" ? (cfg["barsUsed"] as number) : 0,
+      barsUsed: typeof cfg["barsUsed"] === "number" ? (cfg["barsUsed"] as number) : null,
       barsTruncated: false,
       tradesTruncated: false,
       totalTrades: trades.length,
@@ -250,7 +247,7 @@ export function BacktestPanel({
         equity: (data.equity ?? []) as unknown as EquityPoint[],
         trades,
         datasetName: data.dataset_name,
-        barsUsed: typeof cfg["barsUsed"] === "number" ? (cfg["barsUsed"] as number) : 0,
+        barsUsed: typeof cfg["barsUsed"] === "number" ? (cfg["barsUsed"] as number) : null,
         barsTruncated: false,
         tradesTruncated: false,
         totalTrades: trades.length,
@@ -414,35 +411,19 @@ export function BacktestPanel({
                 ))}
               </SelectContent>
             </Select>
+            <p className="font-mono text-[11px] text-muted-foreground">
+              Engine price history: ES full history — 2008-01-02 to present
+            </p>
             {selectedDataset ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="font-mono text-[11px] text-muted-foreground">
-                  Available history: {coverageFrom ?? "—"} → {coverageTo ?? "—"}
-                </p>
-                {coverageFrom && coverageTo ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2 text-[11px]"
-                    onClick={() => {
-                      setFrom(coverageFrom);
-                      setTo(coverageTo);
-                    }}
-                  >
-                    Use full range
-                  </Button>
-                ) : null}
-              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Imported set coverage (reference only, not used by the audit):{" "}
+                {coverageFrom ?? "—"} → {coverageTo ?? "—"}
+              </p>
             ) : (
               <p className="text-[11px] text-muted-foreground">
-                Import price history on the Data sets page to see its available date range here.
+                Import price history on the Data sets page to see its date range here.
               </p>
             )}
-            {outsideCoverage ? (
-              <p className="text-[11px] text-destructive">
-                Your selected window falls outside this data set&apos;s coverage.
-              </p>
-            ) : null}
           </div>
           <div className="space-y-1.5">
 
@@ -546,9 +527,9 @@ export function BacktestPanel({
       {result ? (
         <>
           <p className="text-xs text-muted-foreground">
-            {result.barsUsed.toLocaleString()} bars simulated
+            {result.barsUsed !== null ? `${result.barsUsed.toLocaleString()} bars simulated` : ""}
             {result.rangeStart && result.rangeEnd
-              ? ` · ${new Date(result.rangeStart).toISOString().slice(0, 10)} → ${new Date(
+              ? `${result.barsUsed !== null ? " · " : ""}${new Date(result.rangeStart).toISOString().slice(0, 10)} → ${new Date(
                   result.rangeEnd,
                 ).toISOString().slice(0, 10)}`
               : ""}
