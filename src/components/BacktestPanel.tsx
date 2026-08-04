@@ -73,6 +73,10 @@ export function BacktestPanel({
   definition: StrategyDefinition;
 }) {
   const queryClient = useQueryClient();
+  const [source, setSource] = useState<"engine" | "upload">("engine");
+  const [symbol, setSymbol] = useState("MES");
+  const [timeframe, setTimeframe] = useState("5m");
+  const [jobId, setJobId] = useState<string | null>(null);
   const [datasetId, setDatasetId] = useState<string>("");
   const [config, setConfig] = useState<BacktestConfig>(DEFAULT_CONFIG);
   const [running, setRunning] = useState(false);
@@ -82,6 +86,14 @@ export function BacktestPanel({
   const [overrides, setOverrides] = useState<RuleOverrides>(() =>
     initialOverrides(strategyId, definition),
   );
+
+  const engineQuery = useQuery({
+    queryKey: ["engine-status"],
+    queryFn: () => engineStatus(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const engineReady = engineQuery.data?.configured ?? false;
+  const { job, delivery } = useBacktestJob(jobId);
 
   function setRule(key: string, value: string) {
     setOverrides((prev) => {
