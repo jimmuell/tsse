@@ -1,44 +1,62 @@
-# Full-history data sets (18 years, 1-minute included)
+# Review: TradingGYM two-repo architecture, applied to this app
 
-Goal: import your complete ES history — both the 5-minute file (~1.1M bars) and the 1-minute file (~7M bars) — and backtest across all of it.
+## Verdict
 
-## Where things stand today
+The architecture is sound and it also answers the open question from the last message ("how do we upload 18 years and a 1-minute dataset?"). If the engine owns the market data, this app stops trying to push millions of bars through the browser at all — that whole problem moves to the engine's own storage.
 
-- The importer already streams the file in 8MB chunks and writes bars into row storage in batches of 20,000, so file size itself is no longer the blocker.
-- Two real limits remain:
-  1. An import is one long browser session. A 7M-bar file means ~350 sequential write batches; one network hiccup or a closed tab loses the run, and there is no way to resume or to add more history to an existing data set.
-  2. A backtest run loads every bar into memory on the server and is hard-capped at 1,000,000 bars, so a 1-minute full history would silently truncate.
+Three corrections are needed before it maps onto this codebase.
 
-## What to build
+### 1. There are no "edge functions" here
 
-### 1. Resumable, appendable imports
-- Let an upload target an existing data set instead of always creating a new one ("Add to existing data set"), so history can be loaded in several passes and across sessions.
-- Duplicate bars are already ignored on write, so re-running the same file is safe — the importer will report how many rows were new vs. already present.
-- Add retry with backoff on each batch, and a pause/resume + cancel control on the progress bar.
-- Show a live estimate: rows written, percent of file read, elapsed and estimated remaining time.
+This app is TanStack Start, not the classic Supabase-functions stack. The equivalents are:
 
-### 2. Remove the 1M-bar backtest ceiling
-- Change the server runner to feed bars into the engine page by page instead of collecting them all in an array first, so memory stays flat regardless of history length.
-- Raise the cap to the full data set; keep a generous safety ceiling only to protect against runaway runs, and keep reporting bars simulated and the date range covered.
+- Front desk (browser -> our server, holds the engine key): a server function, `runBacktestOnServer`-style, already the pattern in `src/lib/backtest.functions.ts`.
+- Callback (engine -> us): a public HTTP route under `src/routes/api/public/`, because the engine is an external caller that needs a fixed URL. It must verify a signature or shared secret before writing anything.
 
-### 3. Timeframe roll-up for the 1-minute file
-- Add an optional "aggregate to" choice on the backtest panel (1m → 5m / 15m / 1h), built server-side from the 1-minute rows.
-- This means one 1-minute import can power every higher timeframe, and long-range studies run far faster than bar-by-bar over 7M rows.
+Same shape as the diagram, different names. No new Supabase edge functions should be created.
 
-### 4. Import guidance in the UI
-- On the Data sets page, show per-data-set coverage (first bar, last bar, bar count) and a hint when a file appears to extend beyond what is already stored.
+### 2. The "master key never leaves the platform" reasoning is only half right
 
-## Technical notes
+The real reason the engine calls back rather than writing directly is that we should not hand a database service key to a third-party service — not that it is technically impossible. Worth stating correctly, because it makes the rule portable: the engine gets one narrow callback URL and one shared secret, nothing else.
 
-- `src/routes/datasets/index.tsx`: add target-dataset selection, batch retry/backoff, pause/cancel, and duplicate-vs-new row accounting; keep the existing chunked reader and `upsert ... ignoreDuplicates`.
-- `src/lib/backtest-run.server.ts`: replace `loadRowBars` array accumulation with a paged generator consumed by the engine; retire `MAX_RUN_BARS = 1_000_000` in favour of a much higher guard.
-- `src/lib/backtest/engine.ts`: accept an async iterable of bars in addition to an array (indicator warm-up uses a rolling window, so no full-history array is required).
-- Add a server-side roll-up step that folds N one-minute rows into a single bar before the engine sees them.
-- No schema change is required; `dataset_bars` already has the unique `(dataset_id, t)` key the resumable path relies on.
+### 3. Spinner -> results needs a fallback from day one
 
-## Order of work
+The document already identifies the failure mode (write succeeded, reader never heard). Live subscriptions are the fast path; a poll on the job row is the slow path. Ship both, plus the "how did this screen get its answer" log line, in the same change rather than after the next incident.
 
-1. Streaming server run + cap removal (unblocks the 5-minute full history immediately).
-2. Resumable/appendable import with retries.
-3. Timeframe roll-up.
-4. Data set coverage hints.
+## What changes in this app
+
+### Job table and status
+A `backtest_jobs` row per run: strategy id, config, date range, status (queued / running / done / failed), engine version, error text, and a link to the resulting `backtest_runs` row. Owner-scoped access rules so a user only ever sees their own jobs.
+
+### Submit path
+A server function that validates input, compiles the strategy spec to the engine's payload, creates the job row, calls the engine with the secret key attached, and returns the job id. The browser never sees the engine URL or key.
+
+### Callback path
+`/api/public/backtest-callback`: verify the shared secret over the raw body, validate the payload, write stats/equity/trades into `backtest_runs`, flip the job to done. Reject anything unsigned.
+
+### Screen
+The Backtest tab subscribes to its job row, falls back to polling every few seconds, and logs which path delivered the result. On failure it shows the engine's error rather than a stuck spinner.
+
+### Data sets
+With the engine owning 18 years of ES (5-minute and 1-minute), the browser CSV importer and `dataset_bars` row storage stop being the primary path. Keep them for user-supplied files, but the default backtest source becomes "engine catalogue" — pick symbol, timeframe, date range, no upload.
+
+### One definition of a strategy
+The 17-section spec in this repo should be the single source of truth. The engine and the WIT lab both consume a versioned compiled payload derived from it, and every stored run records both the spec version and the engine version — otherwise numbers drift between the two sides and nobody can tell why.
+
+## Secrets required
+
+- Engine base URL and engine API key (used only inside server handlers).
+- A callback shared secret, identical here and in the engine's config.
+
+## Open questions for you
+
+1. Does the engine already expose an async submit + callback API, or does that contract still need to be defined together?
+2. Should the existing uploaded data sets stay available as a backtest source, or be retired once the engine catalogue is live?
+3. Does the engine accept our compiled rule format, or does it only run the fixed MES ORB strategy today?
+
+## Suggested order of work
+
+1. Agree the engine's request/response and callback contract.
+2. Job table + submit server function + public callback route with secret verification.
+3. Backtest tab switched to job-based flow with live updates, polling fallback, and the delivery-path log line.
+4. Engine catalogue as a data source; local uploads demoted to secondary.
