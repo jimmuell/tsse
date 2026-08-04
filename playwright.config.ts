@@ -1,11 +1,13 @@
 import { existsSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
 
-// App config (.env) and/or e2e-only secrets (.env.e2e, e.g. TEST_EMAIL/TEST_PASSWORD) —
-// both gitignored, neither auto-loaded by `playwright test` itself, so load them
-// explicitly. .env.e2e loads second so it can supply e2e-only keys without touching
-// .env. No-op when a file is absent (CI injects these as real env vars instead).
-for (const envFile of [".env", ".env.e2e"]) {
+// Test credentials (.env.e2e, e.g. TEST_EMAIL/TEST_PASSWORD) and app config (.env,
+// Lovable-managed, public values only) — neither auto-loaded by `playwright test`
+// itself, so load them explicitly. process.loadEnvFile() never overrides an
+// already-set var, so load order IS precedence: .env.e2e first means it wins over
+// .env for any name defined in both (and a shell-exported value always wins over
+// either file). No-op when a file is absent (CI injects these as real env vars).
+for (const envFile of [".env.e2e", ".env"]) {
   if (existsSync(envFile)) {
     process.loadEnvFile(envFile);
   }

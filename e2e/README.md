@@ -11,9 +11,10 @@ Tests source credentials from env, never hardcode them:
 - `TEST_EMAIL`
 - `TEST_PASSWORD`
 
-Put these in `.env` or `.env.e2e` (both gitignored, both loaded automatically by
-`playwright.config.ts`) — `.env.e2e` is the place for e2e-only secrets you don't want
-mixed into the app's own `.env`.
+Put these in `.env.e2e` (gitignored, loaded automatically by `playwright.config.ts` —
+copy `.env.e2e.example` to start). `.env` is Lovable-managed and tracked in git, with
+public values only (Supabase project id/URL and publishable key) — never put test
+credentials there.
 
 ## The fixture strategy
 
