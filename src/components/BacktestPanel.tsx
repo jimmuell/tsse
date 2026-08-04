@@ -65,8 +65,9 @@ export function BacktestPanel({
   definition: StrategyDefinition;
 }) {
   const queryClient = useQueryClient();
-  const [symbol, setSymbol] = useState("MES");
-  const [timeframe, setTimeframe] = useState("5m");
+  // The engine bakes ES/MES in v1 — the symbol is not user-selectable, and the run-screen
+  // timeframe is the spec's chart.timeframe (carried in `overrides`), not a second field.
+  const symbol = "ES";
   const [jobId, setJobId] = useState<string | null>(null);
   const [config, setConfig] = useState<BacktestConfig>(DEFAULT_CONFIG);
   const [running, setRunning] = useState(false);
