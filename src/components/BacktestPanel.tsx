@@ -546,9 +546,9 @@ export function BacktestPanel({
       {result ? (
         <>
           <p className="text-xs text-muted-foreground">
-            {result.barsUsed.toLocaleString()} bars simulated
+            {result.barsUsed !== null ? `${result.barsUsed.toLocaleString()} bars simulated` : ""}
             {result.rangeStart && result.rangeEnd
-              ? ` · ${new Date(result.rangeStart).toISOString().slice(0, 10)} → ${new Date(
+              ? `${result.barsUsed !== null ? " · " : ""}${new Date(result.rangeStart).toISOString().slice(0, 10)} → ${new Date(
                   result.rangeEnd,
                 ).toISOString().slice(0, 10)}`
               : ""}
