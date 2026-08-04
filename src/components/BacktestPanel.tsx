@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Database, Loader2, Play } from "lucide-react";
+import { AlertTriangle, Database, Loader2, Play, RotateCcw } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -112,12 +112,30 @@ export function BacktestPanel({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("datasets")
-        .select("id, name, symbol, timeframe, bar_count")
+        .select("id, name, symbol, timeframe, bar_count, start_at, end_at")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
   });
+
+  const selectedDataset = (datasetsQuery.data ?? []).find((d) => d.id === datasetId) ?? null;
+
+  // Prefill the date range with the selected data set's full span.
+  useEffect(() => {
+    if (!selectedDataset) return;
+    setFrom(selectedDataset.start_at ? selectedDataset.start_at.slice(0, 10) : "");
+    setTo(selectedDataset.end_at ? selectedDataset.end_at.slice(0, 10) : "");
+  }, [selectedDataset?.id, selectedDataset?.start_at, selectedDataset?.end_at]);
+
+  function resetAll() {
+    setConfig(DEFAULT_CONFIG);
+    setFrom(selectedDataset?.start_at ? selectedDataset.start_at.slice(0, 10) : "");
+    setTo(selectedDataset?.end_at ? selectedDataset.end_at.slice(0, 10) : "");
+    resetRules();
+    toast.success("Settings reset to defaults.");
+  }
+
 
   const runsQuery = useQuery({
     queryKey: ["backtest-runs", strategyId],
@@ -308,11 +326,11 @@ export function BacktestPanel({
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="from">From date (optional)</Label>
+            <Label htmlFor="from">From date</Label>
             <Input id="from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="to">To date (optional)</Label>
+            <Label htmlFor="to">To date</Label>
             <Input id="to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
           </div>
           <div className="flex items-end gap-6">
@@ -339,6 +357,10 @@ export function BacktestPanel({
           <Button onClick={() => void run()} disabled={running || !compiled.runnable} className="gap-1.5">
             {running ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
             Run backtest
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={resetAll}>
+            <RotateCcw className="size-4" />
+            Reset to defaults
           </Button>
           <Button asChild variant="ghost" size="sm" className="gap-1.5">
             <Link to="/datasets">
