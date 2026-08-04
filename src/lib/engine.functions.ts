@@ -45,7 +45,11 @@ export const submitEngineBacktest = createServerFn({ method: "POST" })
       .eq("id", data.strategyId)
       .single();
     if (strategyError || !strategy) throw new Error("Strategy not found");
-    const definition = normalizeDefinition(strategy.definition);
+    // The run screen's rule edits are the audited spec — apply them before compiling the
+    // wire config so the engine never runs a stale saved copy.
+    const definition = data.rules
+      ? applyOverrides(normalizeDefinition(strategy.definition), data.rules)
+      : normalizeDefinition(strategy.definition);
 
     const { config: wireConfig, blockers } = compileWireConfig({
       from: data.from,
