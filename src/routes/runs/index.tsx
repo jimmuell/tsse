@@ -83,6 +83,7 @@ function RunsPage() {
   const [selected, setSelected] = useState<string[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth" });
@@ -106,6 +107,7 @@ function RunsPage() {
   const compared = runs.filter((r) => selected.includes(r.id)).slice(0, MAX_COMPARE);
 
   function toggle(id: string) {
+    setShowCompare(false);
     setSelected((prev) =>
       prev.includes(id)
         ? prev.filter((x) => x !== id)
