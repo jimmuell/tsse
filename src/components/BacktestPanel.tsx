@@ -158,9 +158,6 @@ export function BacktestPanel({
   const coverageTo = selectedDataset?.end_at
     ? new Date(selectedDataset.end_at).toISOString().slice(0, 10)
     : null;
-  const outsideCoverage = Boolean(
-    coverageFrom && coverageTo && ((from && from < coverageFrom) || (to && to > coverageTo)),
-  );
 
   useEffect(() => {
     if (!datasetId && datasets.length > 0) setDatasetId(datasets[0]!.id);
