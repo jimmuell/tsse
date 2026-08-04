@@ -112,7 +112,9 @@ export function initialOverrides(
   const out: RuleOverrides = {};
   for (const f of ALL_OVERRIDE_FIELDS) {
     const k = overrideKeyOf(f);
-    out[k] = stored[k] ?? definition.sections?.[f.section]?.[f.key] ?? "";
+    const spec = definition.sections?.[f.section]?.[f.key];
+    const existing = stored[k] ?? (typeof spec === "string" ? spec : spec == null ? "" : String(spec));
+    out[k] = existing && existing.trim() ? existing : (FIELD_DEFAULTS[k] ?? "");
   }
   return out;
 }
