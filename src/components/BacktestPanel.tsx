@@ -336,12 +336,42 @@ export function BacktestPanel({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="from">From date</Label>
-            <Input id="from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            <Input
+              id="from"
+              type="date"
+              min={boundsFrom || undefined}
+              max={boundsTo || undefined}
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+              className={fromOutOfRange || invertedRange ? "border-destructive" : undefined}
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="to">To date</Label>
-            <Input id="to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+            <Input
+              id="to"
+              type="date"
+              min={boundsFrom || undefined}
+              max={boundsTo || undefined}
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              className={toOutOfRange || invertedRange ? "border-destructive" : undefined}
+            />
           </div>
+          {selectedDataset && (boundsFrom || boundsTo) && (
+            <div className="sm:col-span-2 lg:col-span-3 -mt-1">
+              <p className={`text-xs ${rangeIssue ? "text-destructive" : "text-muted-foreground"}`}>
+                Data set covers {boundsFrom || "?"} → {boundsTo || "?"}
+                {selectedDataset.bar_count ? ` (${selectedDataset.bar_count.toLocaleString()} bars)` : ""}.
+                {invertedRange
+                  ? " From date is after To date."
+                  : rangeIssue
+                    ? " Your selected range extends beyond the available data; bars outside it will be ignored."
+                    : ""}
+              </p>
+            </div>
+          )}
+
           <div className="flex items-end gap-6">
             <div className="flex items-center gap-2">
               <Switch
