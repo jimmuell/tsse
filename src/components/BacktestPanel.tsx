@@ -35,6 +35,10 @@ import {
 } from "@/lib/backtest/types";
 import type { StrategyDefinition } from "@/lib/strategy-schema";
 
+/** Default audit window: start of 2025 through today (still editable). */
+const DEFAULT_FROM = "2025-01-01";
+const DEFAULT_TO = new Date().toISOString().slice(0, 10);
+
 function num(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
