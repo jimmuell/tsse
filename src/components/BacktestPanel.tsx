@@ -138,6 +138,31 @@ export function BacktestPanel({
 
   const invertedRange = Boolean(from && to && from > to);
 
+  const datasetsQuery = useQuery({
+    queryKey: ["datasets"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("datasets")
+        .select("id, name, symbol, timeframe, bar_count, start_at, end_at")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+  const datasets = datasetsQuery.data ?? [];
+  const selectedDataset = datasets.find((d) => d.id === datasetId) ?? null;
+  const coverageFrom = selectedDataset?.start_at
+    ? new Date(selectedDataset.start_at).toISOString().slice(0, 10)
+    : null;
+  const coverageTo = selectedDataset?.end_at
+    ? new Date(selectedDataset.end_at).toISOString().slice(0, 10)
+    : null;
+  const outsideCoverage = Boolean(
+    coverageFrom && coverageTo && ((from && from < coverageFrom) || (to && to > coverageTo)),
+  );
+
+
+
   const runsQuery = useQuery({
     queryKey: ["backtest-runs", strategyId],
     queryFn: async () => {
