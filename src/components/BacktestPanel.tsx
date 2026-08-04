@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Database, Loader2, Play } from "lucide-react";
+import { AlertTriangle, Database, Loader2, Play, RotateCcw } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
