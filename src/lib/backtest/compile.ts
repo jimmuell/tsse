@@ -24,7 +24,7 @@ export type CompiledStrategy = {
  * `long_stop = POC - 2 * tick_size; short_stop = POC + 2 * tick_size`.
  * Pull out the statement for one side and drop the assignment target.
  */
-function statementFor(raw: string, side: "long" | "short"): string {
+export function statementFor(raw: string, side: "long" | "short"): string {
   const parts = raw
     .split(/[;\n]+/)
     .map((p) => p.trim())

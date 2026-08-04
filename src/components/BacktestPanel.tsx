@@ -9,13 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Table,
   TableBody,
   TableCell,
@@ -25,7 +18,6 @@ import {
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { compileStrategy } from "@/lib/backtest/compile";
-import { runBacktestOnServer } from "@/lib/backtest.functions";
 import { engineStatus, submitEngineBacktest } from "@/lib/engine.functions";
 import { useBacktestJob } from "@/hooks/useBacktestJob";
 import {
@@ -73,11 +65,9 @@ export function BacktestPanel({
   definition: StrategyDefinition;
 }) {
   const queryClient = useQueryClient();
-  const [source, setSource] = useState<"engine" | "upload">("engine");
   const [symbol, setSymbol] = useState("MES");
   const [timeframe, setTimeframe] = useState("5m");
   const [jobId, setJobId] = useState<string | null>(null);
-  const [datasetId, setDatasetId] = useState<string>("");
   const [config, setConfig] = useState<BacktestConfig>(DEFAULT_CONFIG);
   const [running, setRunning] = useState(false);
   const [from, setFrom] = useState("");
@@ -123,44 +113,15 @@ export function BacktestPanel({
   const blockers = compiled.issues.filter((i) => i.level === "blocker");
   const warnings = compiled.issues.filter((i) => i.level === "warning");
 
-  const datasetsQuery = useQuery({
-    queryKey: ["datasets"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("datasets")
-        .select("id, name, symbol, timeframe, bar_count, start_at, end_at")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const selectedDataset = (datasetsQuery.data ?? []).find((d) => d.id === datasetId) ?? null;
-
-  // Prefill the date range with the selected data set's full span.
-  useEffect(() => {
-    if (!selectedDataset) return;
-    setFrom(selectedDataset.start_at ? selectedDataset.start_at.slice(0, 10) : "");
-    setTo(selectedDataset.end_at ? selectedDataset.end_at.slice(0, 10) : "");
-  }, [selectedDataset?.id, selectedDataset?.start_at, selectedDataset?.end_at]);
-
   function resetAll() {
     setConfig(DEFAULT_CONFIG);
-    setFrom(selectedDataset?.start_at ? selectedDataset.start_at.slice(0, 10) : "");
-    setTo(selectedDataset?.end_at ? selectedDataset.end_at.slice(0, 10) : "");
+    setFrom("");
+    setTo("");
     resetRules();
     toast.success("Settings reset to defaults.");
   }
 
-  const boundsFrom = selectedDataset?.start_at ? selectedDataset.start_at.slice(0, 10) : "";
-  const boundsTo = selectedDataset?.end_at ? selectedDataset.end_at.slice(0, 10) : "";
-  const fromOutOfRange = Boolean(from && boundsFrom && from < boundsFrom);
-  const toOutOfRange = Boolean(to && boundsTo && to > boundsTo);
   const invertedRange = Boolean(from && to && from > to);
-  const rangeIssue = fromOutOfRange || toOutOfRange || invertedRange;
-
-
-
 
   const runsQuery = useQuery({
     queryKey: ["backtest-runs", strategyId],
@@ -219,60 +180,39 @@ export function BacktestPanel({
     })();
   }, [job?.status, job?.run_id]);
 
+  // A WIT audit has one source of truth: the engine. There is no local-backtester
+  // fallback in the result path — see WIT-SEAM-02.
   async function run() {
-    if (source === "engine") {
-      if (!symbol.trim() || !timeframe.trim()) {
-        toast.error("Set a symbol and timeframe first.");
-        return;
-      }
-      setRunning(true);
-      setResult(null);
-      try {
-        const { jobId: id } = await submitEngineBacktest({
-          data: {
-            strategyId,
-            symbol: symbol.trim(),
-            timeframe: timeframe.trim(),
-            config,
-            overrides,
-            ...(from ? { from } : {}),
-            ...(to ? { to } : {}),
-          },
-        });
-        setJobId(id);
-        toast.success("Queued on the engine — results will appear here when it finishes.");
-      } catch (err) {
-        setRunning(false);
-        toast.error(err instanceof Error ? err.message : "The engine could not accept that run.");
-      }
+    if (!symbol.trim() || !timeframe.trim()) {
+      toast.error("Set a symbol and timeframe first.");
       return;
     }
-
-    if (!datasetId) {
-      toast.error("Choose a data set first.");
+    if (!from || !to) {
+      toast.error("Set a from and to date first.");
+      return;
+    }
+    if (invertedRange) {
+      toast.error("From date is after To date.");
       return;
     }
     setRunning(true);
+    setResult(null);
     try {
-      const outcome = await runBacktestOnServer({
+      const { jobId: id } = await submitEngineBacktest({
         data: {
           strategyId,
-          datasetId,
+          symbol: symbol.trim(),
+          timeframe: timeframe.trim(),
           config,
-          overrides,
-          ...(from ? { from } : {}),
-          ...(to ? { to } : {}),
+          from,
+          to,
         },
       });
-      setResult(outcome);
-      await queryClient.invalidateQueries({ queryKey: ["backtest-runs", strategyId] });
-      toast.success(
-        `${outcome.stats.trades} trades over ${outcome.barsUsed.toLocaleString()} bars`,
-      );
+      setJobId(id);
+      toast.success("Queued on the engine — results will appear here when it finishes.");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "The backtest could not be run.");
-    } finally {
       setRunning(false);
+      toast.error(err instanceof Error ? err.message : "The engine could not accept that run.");
     }
   }
 
@@ -361,65 +301,25 @@ export function BacktestPanel({
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-1.5">
-            <Label>Price source</Label>
-            <Select value={source} onValueChange={(v) => setSource(v as "engine" | "upload")}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="engine">Engine catalogue (full history)</SelectItem>
-                <SelectItem value="upload">Uploaded data set</SelectItem>
-              </SelectContent>
-            </Select>
-            {source === "engine" && !engineReady ? (
-              <p className="text-xs text-destructive">
-                The engine is not connected yet — add its URL and API key, or use an uploaded data
-                set.
-              </p>
-            ) : null}
+            <Label htmlFor="symbol">Symbol</Label>
+            <Input id="symbol" value={symbol} onChange={(e) => setSymbol(e.target.value)} />
           </div>
-
-          {source === "engine" ? (
-            <>
-              <div className="space-y-1.5">
-                <Label htmlFor="symbol">Symbol</Label>
-                <Input id="symbol" value={symbol} onChange={(e) => setSymbol(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="timeframe">Timeframe</Label>
-                <Input
-                  id="timeframe"
-                  value={timeframe}
-                  onChange={(e) => setTimeframe(e.target.value)}
-                  placeholder="1m, 5m, 1h"
-                />
-              </div>
-            </>
-          ) : (
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label>Data set</Label>
-              <Select value={datasetId} onValueChange={setDatasetId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose price data" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(datasetsQuery.data ?? []).map((d) => (
-                    <SelectItem key={d.id} value={d.id}>
-                      {d.name} · {d.symbol} {d.timeframe} ({d.bar_count.toLocaleString()})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {(datasetsQuery.data ?? []).length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  <Link to="/datasets" className="underline">
-                    Upload a CSV data set
-                  </Link>{" "}
-                  to get started.
-                </p>
-              ) : null}
+          <div className="space-y-1.5">
+            <Label htmlFor="timeframe">Timeframe</Label>
+            <Input
+              id="timeframe"
+              value={timeframe}
+              onChange={(e) => setTimeframe(e.target.value)}
+              placeholder="1m, 5m, 1h"
+            />
+          </div>
+          {!engineReady ? (
+            <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
+              <p className="text-xs text-destructive">
+                The engine is not connected yet — add its URL and service key in project settings.
+              </p>
             </div>
-          )}
+          ) : null}
           <div className="space-y-1.5">
             <Label htmlFor="capital">Starting capital</Label>
             <Input
@@ -463,11 +363,9 @@ export function BacktestPanel({
             <Input
               id="from"
               type="date"
-              min={boundsFrom || undefined}
-              max={boundsTo || undefined}
               value={from}
               onChange={(e) => setFrom(e.target.value)}
-              className={fromOutOfRange || invertedRange ? "border-destructive" : undefined}
+              className={invertedRange ? "border-destructive" : undefined}
             />
           </div>
           <div className="space-y-1.5">
@@ -475,24 +373,14 @@ export function BacktestPanel({
             <Input
               id="to"
               type="date"
-              min={boundsFrom || undefined}
-              max={boundsTo || undefined}
               value={to}
               onChange={(e) => setTo(e.target.value)}
-              className={toOutOfRange || invertedRange ? "border-destructive" : undefined}
+              className={invertedRange ? "border-destructive" : undefined}
             />
           </div>
-          {selectedDataset && (boundsFrom || boundsTo) && (
+          {invertedRange && (
             <div className="sm:col-span-2 lg:col-span-3 -mt-1">
-              <p className={`text-xs ${rangeIssue ? "text-destructive" : "text-muted-foreground"}`}>
-                Data set covers {boundsFrom || "?"} → {boundsTo || "?"}
-                {selectedDataset.bar_count ? ` (${selectedDataset.bar_count.toLocaleString()} bars)` : ""}.
-                {invertedRange
-                  ? " From date is after To date."
-                  : rangeIssue
-                    ? " Your selected range extends beyond the available data; bars outside it will be ignored."
-                    : ""}
-              </p>
+              <p className="text-xs text-destructive">From date is after To date.</p>
             </div>
           )}
 
@@ -519,7 +407,7 @@ export function BacktestPanel({
         <div className="mt-5 flex items-center gap-3">
           <Button
             onClick={() => void run()}
-            disabled={running || !compiled.runnable || (source === "engine" && !engineReady)}
+            disabled={running || !compiled.runnable || !engineReady}
             className="gap-1.5"
           >
             {running ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}

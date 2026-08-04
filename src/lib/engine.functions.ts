@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getRequestUrl } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { normalizeDefinition } from "@/lib/strategy-schema";
+import { compileWireConfig } from "./wit/wire-config";
 
 const SubmitSchema = z.object({
   strategyId: z.string().uuid(),
@@ -15,39 +16,44 @@ const SubmitSchema = z.object({
     allowLong: z.boolean(),
     allowShort: z.boolean(),
   }),
-  overrides: z.record(z.string(), z.string()),
-  from: z.string().optional(),
-  to: z.string().optional(),
+  from: z.string().min(1),
+  to: z.string().min(1),
 });
 
 export type SubmitEngineResult = {
   jobId: string;
-  engineVersion: string | null;
 };
 
-/** True when the engine URL and key are present, so the UI can explain what is missing. */
+/** True when the engine URL and WIT service key are present, so the UI can explain what is missing. */
 export const engineStatus = createServerFn({ method: "GET" }).handler(async () => ({
-  configured: Boolean(process.env["BACKTEST_ENGINE_URL"] && process.env["BACKTEST_ENGINE_API_KEY"]),
+  configured: Boolean(process.env["ENGINE_URL"] && process.env["WIT_ENGINE_SERVICE_KEY"]),
 }));
 
 export const submitEngineBacktest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => SubmitSchema.parse(input))
   .handler(async ({ data, context }): Promise<SubmitEngineResult> => {
-    const { SPEC_VERSION, compiledRules, submitToEngine } = await import("./engine.server");
+    const { submitToEngine } = await import("./engine.server");
     const supabase = context.supabase;
 
     const { data: strategy, error: strategyError } = await supabase
       .from("strategies")
-      .select("id, name, definition")
+      .select("id, definition")
       .eq("id", data.strategyId)
       .single();
     if (strategyError || !strategy) throw new Error("Strategy not found");
+    const definition = normalizeDefinition(strategy.definition);
 
-    const definition = (strategy.definition ?? {}) as never;
-    const { rules, blockers } = compiledRules(definition, data.overrides);
-    if (blockers.length > 0) {
-      throw new Error(`The rules are not executable: ${blockers.join("; ")}`);
+    const { config: wireConfig, blockers } = compileWireConfig({
+      from: data.from,
+      to: data.to,
+      config: { commission: data.config.commission, slippage: data.config.slippage },
+      definition,
+    });
+    if (blockers.length > 0 || !wireConfig) {
+      throw new Error(
+        `Not ready for the engine yet: ${blockers.map((b) => `${b.field} — ${b.message}`).join("; ")}`,
+      );
     }
 
     const { data: job, error: jobError } = await supabase
@@ -58,40 +64,45 @@ export const submitEngineBacktest = createServerFn({ method: "POST" })
         source: "engine",
         symbol: data.symbol,
         timeframe: data.timeframe,
-        range_from: data.from ? new Date(`${data.from}T00:00:00Z`).toISOString() : null,
-        range_to: data.to ? new Date(`${data.to}T23:59:59Z`).toISOString() : null,
+        range_from: new Date(`${data.from}T00:00:00Z`).toISOString(),
+        range_to: new Date(`${data.to}T23:59:59Z`).toISOString(),
         config: data.config as never,
-        payload: { rules, specVersion: SPEC_VERSION } as never,
-        spec_version: SPEC_VERSION,
+        payload: { wireConfig } as never,
         status: "queued",
       })
       .select("id")
       .single();
     if (jobError || !job) throw new Error(jobError?.message ?? "Could not queue the run.");
 
-    const base = (process.env["PUBLIC_SITE_URL"] ?? getRequestUrl().origin).replace(/\/+$/, "");
-    const callbackUrl = `${base}/api/public/backtest-callback`;
+    // The engine refuses any callback host that isn't *.supabase.co (SSRF guard) and won't
+    // follow redirects, so this must be the Supabase functions domain, never the app origin.
+    const supabaseUrl = process.env["SUPABASE_URL"];
+    if (!supabaseUrl) {
+      throw new Error(
+        "SUPABASE_URL is not configured — the engine callback needs a *.supabase.co host.",
+      );
+    }
+    const callbackUrl = `${supabaseUrl.replace(/\/+$/, "")}/functions/v1/backtest-callback`;
 
     try {
       const outcome = await submitToEngine({
-        jobId: job.id,
-        callbackUrl,
-        specVersion: SPEC_VERSION,
-        symbol: data.symbol,
-        timeframe: data.timeframe,
-        from: data.from ?? null,
-        to: data.to ?? null,
-        config: data.config,
-        strategy: { id: strategy.id, name: strategy.name, rules, definition },
+        evaluation_id: job.id,
+        kind: "backtest",
+        callback_url: callbackUrl,
+        config: wireConfig,
+        budget: { max_wall_seconds: 600 },
       });
       await supabase
         .from("backtest_jobs")
-        .update({ status: "running", engine_version: outcome.engineVersion })
+        .update({ status: "running", engine_run_id: outcome.runId })
         .eq("id", job.id);
-      return { jobId: job.id, engineVersion: outcome.engineVersion };
+      return { jobId: job.id };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      await supabase.from("backtest_jobs").update({ status: "failed", error: message }).eq("id", job.id);
+      await supabase
+        .from("backtest_jobs")
+        .update({ status: "failed", error: message })
+        .eq("id", job.id);
       throw new Error(message);
     }
   });
