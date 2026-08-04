@@ -112,12 +112,30 @@ export function BacktestPanel({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("datasets")
-        .select("id, name, symbol, timeframe, bar_count")
+        .select("id, name, symbol, timeframe, bar_count, start_at, end_at")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
   });
+
+  const selectedDataset = (datasetsQuery.data ?? []).find((d) => d.id === datasetId) ?? null;
+
+  // Prefill the date range with the selected data set's full span.
+  useEffect(() => {
+    if (!selectedDataset) return;
+    setFrom(selectedDataset.start_at ? selectedDataset.start_at.slice(0, 10) : "");
+    setTo(selectedDataset.end_at ? selectedDataset.end_at.slice(0, 10) : "");
+  }, [selectedDataset?.id, selectedDataset?.start_at, selectedDataset?.end_at]);
+
+  function resetAll() {
+    setConfig(DEFAULT_CONFIG);
+    setFrom(selectedDataset?.start_at ? selectedDataset.start_at.slice(0, 10) : "");
+    setTo(selectedDataset?.end_at ? selectedDataset.end_at.slice(0, 10) : "");
+    resetRules();
+    toast.success("Settings reset to defaults.");
+  }
+
 
   const runsQuery = useQuery({
     queryKey: ["backtest-runs", strategyId],
