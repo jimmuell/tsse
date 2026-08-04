@@ -167,8 +167,19 @@ function RunsPage() {
     },
   ];
 
+  const backtestStrategyId =
+    runs.find((r) => selected.includes(r.id))?.strategy_id ?? runs[0]?.strategy_id ?? null;
+
   return (
     <AppShell email={user?.email ?? null}>
+      {backtestStrategyId ? (
+        <Button variant="ghost" size="sm" className="-ml-2 mb-3 gap-1.5" asChild>
+          <Link to="/strategies/$id" params={{ id: backtestStrategyId }}>
+            <ArrowLeft className="size-4" />
+            Back to backtest
+          </Link>
+        </Button>
+      ) : null}
       <div className="flex flex-wrap items-center gap-4">
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-semibold tracking-tight">Run history</h1>
