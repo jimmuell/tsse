@@ -178,15 +178,26 @@ function RunsPage() {
           </p>
         </div>
         {selected.length > 0 ? (
-          <Button
-            variant="destructive"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => setConfirmOpen(true)}
-          >
-            <Trash2 className="size-4" />
-            Delete {selected.length}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              className="gap-1.5"
+              disabled={selected.length < 2}
+              onClick={() => setShowCompare(true)}
+            >
+              <Columns2 className="size-4" />
+              Compare {selected.length}
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setConfirmOpen(true)}
+            >
+              <Trash2 className="size-4" />
+              Delete {selected.length}
+            </Button>
+          </div>
         ) : null}
       </div>
 
