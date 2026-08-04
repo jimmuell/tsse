@@ -185,7 +185,7 @@ export function BacktestPanel({
       equity: (data.equity ?? []) as unknown as EquityPoint[],
       trades,
       datasetName: data.dataset_name,
-      barsUsed: typeof cfg["barsUsed"] === "number" ? (cfg["barsUsed"] as number) : 0,
+      barsUsed: typeof cfg["barsUsed"] === "number" ? (cfg["barsUsed"] as number) : null,
       barsTruncated: false,
       tradesTruncated: false,
       totalTrades: trades.length,
