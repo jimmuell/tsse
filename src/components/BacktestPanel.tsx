@@ -176,7 +176,78 @@ export function BacktestPanel({
     },
   });
 
+  // Engine jobs finish asynchronously: the callback writes the run, we load it here.
+  useEffect(() => {
+    if (!job) return;
+    if (job.status === "failed") {
+      setRunning(false);
+      setJobId(null);
+      toast.error(job.error ?? "The engine could not complete that run.");
+      return;
+    }
+    if (job.status !== "done" || !job.run_id) return;
+    void (async () => {
+      const { data, error } = await supabase
+        .from("backtest_runs")
+        .select("id, dataset_name, stats, equity, trades, config, compiled")
+        .eq("id", job.run_id as string)
+        .single();
+      setRunning(false);
+      setJobId(null);
+      if (error || !data) {
+        toast.error("The results were saved but could not be loaded.");
+        return;
+      }
+      const cfg = (data.config ?? {}) as Record<string, unknown>;
+      const meta = (data.compiled ?? {}) as Record<string, unknown>;
+      const trades = (data.trades ?? []) as unknown as Trade[];
+      setResult({
+        stats: data.stats as never,
+        equity: (data.equity ?? []) as unknown as EquityPoint[],
+        trades,
+        datasetName: data.dataset_name,
+        barsUsed: typeof cfg["barsUsed"] === "number" ? (cfg["barsUsed"] as number) : 0,
+        barsTruncated: false,
+        tradesTruncated: false,
+        totalTrades: trades.length,
+        issues: [],
+        rangeStart: (meta["rangeStart"] as number | null) ?? null,
+        rangeEnd: (meta["rangeEnd"] as number | null) ?? null,
+      });
+      await queryClient.invalidateQueries({ queryKey: ["backtest-runs", strategyId] });
+      toast.success(`Engine run complete (${delivery === "poll" ? "polled" : "live"})`);
+    })();
+  }, [job?.status, job?.run_id]);
+
   async function run() {
+    if (source === "engine") {
+      if (!symbol.trim() || !timeframe.trim()) {
+        toast.error("Set a symbol and timeframe first.");
+        return;
+      }
+      setRunning(true);
+      setResult(null);
+      try {
+        const { jobId: id } = await submitEngineBacktest({
+          data: {
+            strategyId,
+            symbol: symbol.trim(),
+            timeframe: timeframe.trim(),
+            config,
+            overrides,
+            ...(from ? { from } : {}),
+            ...(to ? { to } : {}),
+          },
+        });
+        setJobId(id);
+        toast.success("Queued on the engine — results will appear here when it finishes.");
+      } catch (err) {
+        setRunning(false);
+        toast.error(err instanceof Error ? err.message : "The engine could not accept that run.");
+      }
+      return;
+    }
+
     if (!datasetId) {
       toast.error("Choose a data set first.");
       return;
