@@ -14,6 +14,91 @@ export type Database = {
   }
   public: {
     Tables: {
+      backtest_jobs: {
+        Row: {
+          config: Json
+          created_at: string
+          dataset_id: string | null
+          engine_version: string | null
+          error: string | null
+          id: string
+          payload: Json
+          range_from: string | null
+          range_to: string | null
+          run_id: string | null
+          source: string
+          spec_version: string | null
+          status: string
+          strategy_id: string
+          symbol: string
+          timeframe: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          dataset_id?: string | null
+          engine_version?: string | null
+          error?: string | null
+          id?: string
+          payload?: Json
+          range_from?: string | null
+          range_to?: string | null
+          run_id?: string | null
+          source?: string
+          spec_version?: string | null
+          status?: string
+          strategy_id: string
+          symbol?: string
+          timeframe?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          dataset_id?: string | null
+          engine_version?: string | null
+          error?: string | null
+          id?: string
+          payload?: Json
+          range_from?: string | null
+          range_to?: string | null
+          run_id?: string | null
+          source?: string
+          spec_version?: string | null
+          status?: string
+          strategy_id?: string
+          symbol?: string
+          timeframe?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "backtest_jobs_dataset_id_fkey"
+            columns: ["dataset_id"]
+            isOneToOne: false
+            referencedRelation: "datasets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "backtest_jobs_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "backtest_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "backtest_jobs_strategy_id_fkey"
+            columns: ["strategy_id"]
+            isOneToOne: false
+            referencedRelation: "strategies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       backtest_runs: {
         Row: {
           compiled: Json

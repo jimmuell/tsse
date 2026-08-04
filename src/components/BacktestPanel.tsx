@@ -26,6 +26,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { compileStrategy } from "@/lib/backtest/compile";
 import { runBacktestOnServer } from "@/lib/backtest.functions";
+import { engineStatus, submitEngineBacktest } from "@/lib/engine.functions";
+import { useBacktestJob } from "@/hooks/useBacktestJob";
 import {
   RULE_FIELDS,
   applyOverrides,
@@ -36,7 +38,9 @@ import {
 import {
   DEFAULT_CONFIG,
   type BacktestConfig,
+  type EquityPoint,
   type ServerRunResult,
+  type Trade,
 } from "@/lib/backtest/types";
 import type { StrategyDefinition } from "@/lib/strategy-schema";
 
@@ -69,6 +73,10 @@ export function BacktestPanel({
   definition: StrategyDefinition;
 }) {
   const queryClient = useQueryClient();
+  const [source, setSource] = useState<"engine" | "upload">("engine");
+  const [symbol, setSymbol] = useState("MES");
+  const [timeframe, setTimeframe] = useState("5m");
+  const [jobId, setJobId] = useState<string | null>(null);
   const [datasetId, setDatasetId] = useState<string>("");
   const [config, setConfig] = useState<BacktestConfig>(DEFAULT_CONFIG);
   const [running, setRunning] = useState(false);
@@ -78,6 +86,14 @@ export function BacktestPanel({
   const [overrides, setOverrides] = useState<RuleOverrides>(() =>
     initialOverrides(strategyId, definition),
   );
+
+  const engineQuery = useQuery({
+    queryKey: ["engine-status"],
+    queryFn: () => engineStatus(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const engineReady = engineQuery.data?.configured ?? false;
+  const { job, delivery } = useBacktestJob(jobId);
 
   function setRule(key: string, value: string) {
     setOverrides((prev) => {
@@ -160,7 +176,78 @@ export function BacktestPanel({
     },
   });
 
+  // Engine jobs finish asynchronously: the callback writes the run, we load it here.
+  useEffect(() => {
+    if (!job) return;
+    if (job.status === "failed") {
+      setRunning(false);
+      setJobId(null);
+      toast.error(job.error ?? "The engine could not complete that run.");
+      return;
+    }
+    if (job.status !== "done" || !job.run_id) return;
+    void (async () => {
+      const { data, error } = await supabase
+        .from("backtest_runs")
+        .select("id, dataset_name, stats, equity, trades, config, compiled")
+        .eq("id", job.run_id as string)
+        .single();
+      setRunning(false);
+      setJobId(null);
+      if (error || !data) {
+        toast.error("The results were saved but could not be loaded.");
+        return;
+      }
+      const cfg = (data.config ?? {}) as Record<string, unknown>;
+      const meta = (data.compiled ?? {}) as Record<string, unknown>;
+      const trades = (data.trades ?? []) as unknown as Trade[];
+      setResult({
+        stats: data.stats as never,
+        equity: (data.equity ?? []) as unknown as EquityPoint[],
+        trades,
+        datasetName: data.dataset_name,
+        barsUsed: typeof cfg["barsUsed"] === "number" ? (cfg["barsUsed"] as number) : 0,
+        barsTruncated: false,
+        tradesTruncated: false,
+        totalTrades: trades.length,
+        issues: [],
+        rangeStart: (meta["rangeStart"] as number | null) ?? null,
+        rangeEnd: (meta["rangeEnd"] as number | null) ?? null,
+      });
+      await queryClient.invalidateQueries({ queryKey: ["backtest-runs", strategyId] });
+      toast.success(`Engine run complete (${delivery === "poll" ? "polled" : "live"})`);
+    })();
+  }, [job?.status, job?.run_id]);
+
   async function run() {
+    if (source === "engine") {
+      if (!symbol.trim() || !timeframe.trim()) {
+        toast.error("Set a symbol and timeframe first.");
+        return;
+      }
+      setRunning(true);
+      setResult(null);
+      try {
+        const { jobId: id } = await submitEngineBacktest({
+          data: {
+            strategyId,
+            symbol: symbol.trim(),
+            timeframe: timeframe.trim(),
+            config,
+            overrides,
+            ...(from ? { from } : {}),
+            ...(to ? { to } : {}),
+          },
+        });
+        setJobId(id);
+        toast.success("Queued on the engine — results will appear here when it finishes.");
+      } catch (err) {
+        setRunning(false);
+        toast.error(err instanceof Error ? err.message : "The engine could not accept that run.");
+      }
+      return;
+    }
+
     if (!datasetId) {
       toast.error("Choose a data set first.");
       return;
@@ -273,29 +360,66 @@ export function BacktestPanel({
       <div className="rounded-lg border border-border bg-card p-5">
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
-            <Label>Data set</Label>
-            <Select value={datasetId} onValueChange={setDatasetId}>
+          <div className="space-y-1.5">
+            <Label>Price source</Label>
+            <Select value={source} onValueChange={(v) => setSource(v as "engine" | "upload")}>
               <SelectTrigger>
-                <SelectValue placeholder="Choose price data" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {(datasetsQuery.data ?? []).map((d) => (
-                  <SelectItem key={d.id} value={d.id}>
-                    {d.name} · {d.symbol} {d.timeframe} ({d.bar_count.toLocaleString()})
-                  </SelectItem>
-                ))}
+                <SelectItem value="engine">Engine catalogue (full history)</SelectItem>
+                <SelectItem value="upload">Uploaded data set</SelectItem>
               </SelectContent>
             </Select>
-            {(datasetsQuery.data ?? []).length === 0 ? (
-              <p className="text-xs text-muted-foreground">
-                <Link to="/datasets" className="underline">
-                  Upload a CSV data set
-                </Link>{" "}
-                to get started.
+            {source === "engine" && !engineReady ? (
+              <p className="text-xs text-destructive">
+                The engine is not connected yet — add its URL and API key, or use an uploaded data
+                set.
               </p>
             ) : null}
           </div>
+
+          {source === "engine" ? (
+            <>
+              <div className="space-y-1.5">
+                <Label htmlFor="symbol">Symbol</Label>
+                <Input id="symbol" value={symbol} onChange={(e) => setSymbol(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="timeframe">Timeframe</Label>
+                <Input
+                  id="timeframe"
+                  value={timeframe}
+                  onChange={(e) => setTimeframe(e.target.value)}
+                  placeholder="1m, 5m, 1h"
+                />
+              </div>
+            </>
+          ) : (
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Data set</Label>
+              <Select value={datasetId} onValueChange={setDatasetId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose price data" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(datasetsQuery.data ?? []).map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.name} · {d.symbol} {d.timeframe} ({d.bar_count.toLocaleString()})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {(datasetsQuery.data ?? []).length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  <Link to="/datasets" className="underline">
+                    Upload a CSV data set
+                  </Link>{" "}
+                  to get started.
+                </p>
+              ) : null}
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="capital">Starting capital</Label>
             <Input
@@ -393,10 +517,20 @@ export function BacktestPanel({
         </div>
 
         <div className="mt-5 flex items-center gap-3">
-          <Button onClick={() => void run()} disabled={running || !compiled.runnable} className="gap-1.5">
+          <Button
+            onClick={() => void run()}
+            disabled={running || !compiled.runnable || (source === "engine" && !engineReady)}
+            className="gap-1.5"
+          >
             {running ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
             Run backtest
           </Button>
+          {running && jobId ? (
+            <p className="text-xs text-muted-foreground">
+              Engine is working on this run{job?.status ? ` (${job.status})` : ""} — the results
+              land here automatically.
+            </p>
+          ) : null}
           <Button variant="outline" size="sm" className="gap-1.5" onClick={resetAll}>
             <RotateCcw className="size-4" />
             Reset to defaults
