@@ -359,7 +359,57 @@ export function BacktestPanel({
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
+            <Label htmlFor="dataset">Data set</Label>
+            <Select value={datasetId} onValueChange={setDatasetId}>
+              <SelectTrigger id="dataset">
+                <SelectValue
+                  placeholder={
+                    datasets.length ? "Select a data set" : "No data sets imported yet"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent className="bg-popover">
+                {datasets.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.name} · {d.symbol} {d.timeframe} ·{" "}
+                    {(d.bar_count ?? 0).toLocaleString()} bars
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedDataset ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-mono text-[11px] text-muted-foreground">
+                  Available history: {coverageFrom ?? "—"} → {coverageTo ?? "—"}
+                </p>
+                {coverageFrom && coverageTo ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-[11px]"
+                    onClick={() => {
+                      setFrom(coverageFrom);
+                      setTo(coverageTo);
+                    }}
+                  >
+                    Use full range
+                  </Button>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">
+                Import price history on the Data sets page to see its available date range here.
+              </p>
+            )}
+            {outsideCoverage ? (
+              <p className="text-[11px] text-destructive">
+                Your selected window falls outside this data set&apos;s coverage.
+              </p>
+            ) : null}
+          </div>
           <div className="space-y-1.5">
+
             <Label htmlFor="timeframe">Chart timeframe</Label>
             <Input
               id="timeframe"
