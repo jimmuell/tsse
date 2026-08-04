@@ -35,6 +35,10 @@ import {
 } from "@/lib/backtest/types";
 import type { StrategyDefinition } from "@/lib/strategy-schema";
 
+/** Default audit window: start of 2025 through today (still editable). */
+const DEFAULT_FROM = "2025-01-01";
+const DEFAULT_TO = new Date().toISOString().slice(0, 10);
+
 function num(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
@@ -74,8 +78,8 @@ export function BacktestPanel({
   const [jobId, setJobId] = useState<string | null>(null);
   const [config, setConfig] = useState<BacktestConfig>(DEFAULT_CONFIG);
   const [running, setRunning] = useState(false);
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [from, setFrom] = useState(DEFAULT_FROM);
+  const [to, setTo] = useState(DEFAULT_TO);
   const [result, setResult] = useState<ServerRunResult | null>(null);
   const [overrides, setOverrides] = useState<RuleOverrides>(() =>
     initialOverrides(strategyId, definition),
@@ -119,8 +123,8 @@ export function BacktestPanel({
 
   function resetAll() {
     setConfig(DEFAULT_CONFIG);
-    setFrom("");
-    setTo("");
+    setFrom(DEFAULT_FROM);
+    setTo(DEFAULT_TO);
     resetRules();
     toast.success("Settings reset to defaults.");
   }
