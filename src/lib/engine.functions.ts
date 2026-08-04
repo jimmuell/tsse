@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { normalizeDefinition } from "@/lib/strategy-schema";
+import { applyOverrides } from "@/lib/backtest/rules";
 import { compileWireConfig } from "./wit/wire-config";
 
 const SubmitSchema = z.object({
@@ -18,6 +19,8 @@ const SubmitSchema = z.object({
   }),
   from: z.string().min(1),
   to: z.string().min(1),
+  /** Current on-screen edits, keyed "section.key". The engine must audit what the user sees. */
+  rules: z.record(z.string(), z.string()).optional(),
 });
 
 export type SubmitEngineResult = {
@@ -42,7 +45,11 @@ export const submitEngineBacktest = createServerFn({ method: "POST" })
       .eq("id", data.strategyId)
       .single();
     if (strategyError || !strategy) throw new Error("Strategy not found");
-    const definition = normalizeDefinition(strategy.definition);
+    // The run screen's rule edits are the audited spec — apply them before compiling the
+    // wire config so the engine never runs a stale saved copy.
+    const definition = data.rules
+      ? applyOverrides(normalizeDefinition(strategy.definition), data.rules)
+      : normalizeDefinition(strategy.definition);
 
     const { config: wireConfig, blockers } = compileWireConfig({
       from: data.from,

@@ -14,7 +14,12 @@ export const RULE_FIELDS = [
     label: "Short entry",
     placeholder: "close < sma(close, 20)",
   },
-  { section: "stop_loss", key: "stop_formula", label: "Stop loss", placeholder: "2 * atr(14)" },
+  {
+    section: "stop_loss",
+    key: "stop_formula",
+    label: "Stop (ticks)",
+    placeholder: "8 — a plain number of ticks",
+  },
   {
     section: "profit_target",
     key: "target_formula",
@@ -24,8 +29,8 @@ export const RULE_FIELDS = [
   {
     section: "position_sizing",
     key: "sizing_formula",
-    label: "Position size (optional)",
-    placeholder: "leave empty to use default quantity",
+    label: "Position size (not applied)",
+    placeholder: "engine sizes at a fixed 1 contract",
   },
   {
     section: "exit",
@@ -34,6 +39,20 @@ export const RULE_FIELDS = [
     placeholder: "close < sma(close, 20)",
   },
 ] as const;
+
+/**
+ * Spec fields the run screen can edit that are not executable expressions. Kept out of
+ * RULE_FIELDS so they don't appear in the expression grid, but carried in the same overrides
+ * object so they reach the server on submit.
+ */
+export const EXTRA_OVERRIDE_FIELDS = [
+  { section: "chart", key: "timeframe", label: "Chart timeframe" },
+] as const;
+
+const ALL_OVERRIDE_FIELDS = [...RULE_FIELDS, ...EXTRA_OVERRIDE_FIELDS] as ReadonlyArray<{
+  section: string;
+  key: string;
+}>;
 
 export type RuleOverrides = Record<string, string>;
 
@@ -46,11 +65,22 @@ export function applyOverrides(
   overrides: RuleOverrides,
 ): StrategyDefinition {
   const sections: StrategyDefinition["sections"] = { ...(definition.sections ?? {}) };
+  // Rule fields are authoritative even when blank (clearing one must clear the spec value);
+  // any other "section.key" override present is applied as-is.
   for (const f of RULE_FIELDS) {
     sections[f.section] = {
       ...(sections[f.section] ?? {}),
       [f.key]: overrides[overrideKeyOf(f)] ?? "",
     };
+  }
+  for (const [k, value] of Object.entries(overrides)) {
+    const dot = k.indexOf(".");
+    if (dot <= 0) continue;
+    const section = k.slice(0, dot);
+    const key = k.slice(dot + 1);
+    if (RULE_FIELDS.some((f) => f.section === section && f.key === key)) continue;
+    if (!value.trim()) continue;
+    sections[section] = { ...(sections[section] ?? {}), [key]: value };
   }
   return { ...definition, sections };
 }
@@ -68,7 +98,7 @@ export function initialOverrides(
     }
   }
   const out: RuleOverrides = {};
-  for (const f of RULE_FIELDS) {
+  for (const f of ALL_OVERRIDE_FIELDS) {
     const k = overrideKeyOf(f);
     out[k] = stored[k] ?? definition.sections?.[f.section]?.[f.key] ?? "";
   }

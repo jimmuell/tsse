@@ -176,7 +176,9 @@ export const SPEC_SECTIONS: SpecSection[] = [
     description: "How quantity is determined.",
     fields: [
       { key: "sizing_method", label: "Sizing method", required: true },
-      { key: "sizing_formula", label: "Sizing formula", rule: true, multiline: true, required: true },
+      // Not required: the audit engine sizes every trade at a fixed 1 contract and never
+      // reads this field, so an empty formula cannot change a result.
+      { key: "sizing_formula", label: "Sizing formula", rule: true, multiline: true },
       { key: "max_position", label: "Maximum position size" },
     ],
   },
