@@ -360,29 +360,66 @@ export function BacktestPanel({
       <div className="rounded-lg border border-border bg-card p-5">
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="space-y-1.5 sm:col-span-2 lg:col-span-1">
-            <Label>Data set</Label>
-            <Select value={datasetId} onValueChange={setDatasetId}>
+          <div className="space-y-1.5">
+            <Label>Price source</Label>
+            <Select value={source} onValueChange={(v) => setSource(v as "engine" | "upload")}>
               <SelectTrigger>
-                <SelectValue placeholder="Choose price data" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {(datasetsQuery.data ?? []).map((d) => (
-                  <SelectItem key={d.id} value={d.id}>
-                    {d.name} · {d.symbol} {d.timeframe} ({d.bar_count.toLocaleString()})
-                  </SelectItem>
-                ))}
+                <SelectItem value="engine">Engine catalogue (full history)</SelectItem>
+                <SelectItem value="upload">Uploaded data set</SelectItem>
               </SelectContent>
             </Select>
-            {(datasetsQuery.data ?? []).length === 0 ? (
-              <p className="text-xs text-muted-foreground">
-                <Link to="/datasets" className="underline">
-                  Upload a CSV data set
-                </Link>{" "}
-                to get started.
+            {source === "engine" && !engineReady ? (
+              <p className="text-xs text-destructive">
+                The engine is not connected yet — add its URL and API key, or use an uploaded data
+                set.
               </p>
             ) : null}
           </div>
+
+          {source === "engine" ? (
+            <>
+              <div className="space-y-1.5">
+                <Label htmlFor="symbol">Symbol</Label>
+                <Input id="symbol" value={symbol} onChange={(e) => setSymbol(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="timeframe">Timeframe</Label>
+                <Input
+                  id="timeframe"
+                  value={timeframe}
+                  onChange={(e) => setTimeframe(e.target.value)}
+                  placeholder="1m, 5m, 1h"
+                />
+              </div>
+            </>
+          ) : (
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Data set</Label>
+              <Select value={datasetId} onValueChange={setDatasetId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose price data" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(datasetsQuery.data ?? []).map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.name} · {d.symbol} {d.timeframe} ({d.bar_count.toLocaleString()})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {(datasetsQuery.data ?? []).length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  <Link to="/datasets" className="underline">
+                    Upload a CSV data set
+                  </Link>{" "}
+                  to get started.
+                </p>
+              ) : null}
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="capital">Starting capital</Label>
             <Input
