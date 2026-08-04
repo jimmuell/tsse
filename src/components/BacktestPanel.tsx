@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Database, Loader2, Play, RotateCcw } from "lucide-react";
+import { AlertTriangle, Database, Loader2, Play, RotateCcw, Trash2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -166,8 +166,44 @@ export function BacktestPanel({
     if (!datasetId && datasets.length > 0) setDatasetId(datasets[0]!.id);
   }, [datasets.length]);
 
+  /** Re-open an archived run in the results area below. */
+  async function loadRun(runId: string) {
+    const { data, error } = await supabase
+      .from("backtest_runs")
+      .select("id, dataset_name, stats, equity, trades, config, compiled")
+      .eq("id", runId)
+      .single();
+    if (error || !data) {
+      toast.error("Could not load that run.");
+      return;
+    }
+    const cfg = (data.config ?? {}) as Record<string, unknown>;
+    const meta = (data.compiled ?? {}) as Record<string, unknown>;
+    const trades = (data.trades ?? []) as unknown as Trade[];
+    setResult({
+      stats: data.stats as never,
+      equity: (data.equity ?? []) as unknown as EquityPoint[],
+      trades,
+      datasetName: data.dataset_name,
+      barsUsed: typeof cfg["barsUsed"] === "number" ? (cfg["barsUsed"] as number) : 0,
+      barsTruncated: false,
+      tradesTruncated: false,
+      totalTrades: trades.length,
+      issues: [],
+      rangeStart: (meta["rangeStart"] as number | null) ?? null,
+      rangeEnd: (meta["rangeEnd"] as number | null) ?? null,
+    });
+  }
 
-
+  async function deleteRun(runId: string) {
+    const { error } = await supabase.from("backtest_runs").delete().eq("id", runId);
+    if (error) {
+      toast.error("Could not delete that run.");
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: ["backtest-runs", strategyId] });
+    toast.success("Run deleted.");
+  }
 
 
   const runsQuery = useQuery({
@@ -620,7 +656,12 @@ export function BacktestPanel({
 
       {(runsQuery.data ?? []).length > 0 ? (
         <div className="rounded-lg border border-border bg-card">
-          <p className="border-b border-border px-4 py-3 text-sm font-medium">Previous runs</p>
+          <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+            <p className="text-sm font-medium">Previous runs</p>
+            <Button asChild variant="ghost" size="sm" className="gap-1.5">
+              <Link to="/runs">Compare all runs</Link>
+            </Button>
+          </div>
           <ul className="divide-y divide-border">
             {(runsQuery.data ?? []).map((r) => {
               const stats = r.stats as { netPnl?: number; trades?: number; winRate?: number };
@@ -634,12 +675,30 @@ export function BacktestPanel({
                   <span className="ml-auto text-muted-foreground">
                     {new Date(r.created_at).toLocaleString()}
                   </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2"
+                    onClick={() => void loadRun(r.id)}
+                  >
+                    Load
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-7"
+                    aria-label="Delete run"
+                    onClick={() => void deleteRun(r.id)}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
                 </li>
               );
             })}
           </ul>
         </div>
       ) : null}
+
     </div>
   );
 }

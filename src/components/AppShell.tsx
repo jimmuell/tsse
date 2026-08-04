@@ -22,8 +22,12 @@ export function AppShell({ children, email }: { children: ReactNode; email?: str
           </Link>
           <div className="flex-1" />
           <Button asChild variant="ghost" size="sm">
+            <Link to="/runs">Runs</Link>
+          </Button>
+          <Button asChild variant="ghost" size="sm">
             <Link to="/datasets">Data sets</Link>
           </Button>
+
           <Button asChild size="sm" className="gap-1.5">
 
             <Link to="/strategies/new">
