@@ -194,9 +194,10 @@ function deriveValueAreaPct(def: StrategyDefinition): number | null {
   return scanValueAreaPct(def);
 }
 
-/** Stop distance in raw price points (positive), from a static stop_formula. Null if the
- *  formula references bar data/indicators (dynamic) or doesn't parse. */
-function deriveStopPoints(def: StrategyDefinition): number | null {
+/** Stop distance in ticks (positive), from a static stop_formula — the number the user enters
+ *  there MEANS ticks (Jim's decision), so it is returned as-is. Null if the formula references
+ *  bar data/indicators (dynamic) or doesn't parse. */
+function deriveStopTicks(def: StrategyDefinition): number | null {
   const raw = statementFor(section(def, "stop_loss", "stop_formula"), "long");
   const node = tryParse(raw);
   if (!node) return null;
@@ -207,9 +208,10 @@ function deriveStopPoints(def: StrategyDefinition): number | null {
 /** exits.target.value is HONOURED as a positive R-multiple; the engine has no other target
  *  shape in v1. Two confident derivations, tried in order:
  *   A. target_formula is already phrased as a multiple of risk ("2 * risk") -> that coefficient.
- *   B. target_formula and stop_formula are BOTH static point-distances -> their ratio is the
- *      R-multiple (unit-independent — points cancel whether expressed in points or ticks). */
-function deriveTargetRMultiple(def: StrategyDefinition, stopPoints: number | null): number | null {
+ *   B. target_formula and stop_formula are BOTH static distances in the same unit -> their ratio
+ *      is the R-multiple (unit-independent — the shared unit cancels whether it's points or
+ *      ticks, so this still holds now that stop is read as ticks). */
+function deriveTargetRMultiple(def: StrategyDefinition, stopTicks: number | null): number | null {
   const raw = statementFor(section(def, "profit_target", "target_formula"), "long");
   const node = tryParse(raw);
   if (!node) return null;
@@ -218,8 +220,8 @@ function deriveTargetRMultiple(def: StrategyDefinition, stopPoints: number | nul
   if (asRiskMultiple !== null && asRiskMultiple > 0) return asRiskMultiple;
 
   const targetPoints = evalConstant(node);
-  if (targetPoints !== null && targetPoints !== 0 && stopPoints !== null && stopPoints > 0) {
-    return Math.abs(targetPoints) / stopPoints;
+  if (targetPoints !== null && targetPoints !== 0 && stopTicks !== null && stopTicks > 0) {
+    return Math.abs(targetPoints) / stopTicks;
   }
   return null;
 }
@@ -274,16 +276,21 @@ export function compileWireConfig(input: WireConfigInput): {
     });
   }
 
-  const stopPoints = deriveStopPoints(input.definition);
-  if (stopPoints === null) {
+  const stopTicks = deriveStopTicks(input.definition);
+  if (stopTicks === null) {
     blockers.push({
       field: "exits.stop.ticks",
       message:
-        'Stop distance could not be read as a fixed number — set the Stop formula in the Stop loss section to a plain number of points (e.g. "8"), not an indicator formula like "atr(14)".',
+        'Stop distance could not be read as a fixed number — set the Stop formula in the Stop loss section to a plain number of ticks (e.g. "8"), not an indicator formula like "atr(14)".',
+    });
+  } else if (!Number.isInteger(stopTicks)) {
+    blockers.push({
+      field: "exits.stop.ticks",
+      message: "Stop must be a whole number of ticks.",
     });
   }
 
-  const targetRMultiple = deriveTargetRMultiple(input.definition, stopPoints);
+  const targetRMultiple = deriveTargetRMultiple(input.definition, stopTicks);
   if (targetRMultiple === null) {
     blockers.push({
       field: "exits.target.value",
@@ -335,7 +342,7 @@ export function compileWireConfig(input: WireConfigInput): {
       stop: {
         mode: "level_offset", // declared but NOT applied — engine bakes POC +/- ticks
         ref: "poc", // declared but NOT applied
-        ticks: stopPoints !== null ? Math.round(stopPoints / BAKED_TICK_SIZE) || 1 : 0, // HONOURED, or BLOCKED above
+        ticks: stopTicks !== null ? stopTicks : 0, // HONOURED as-is (the field already means ticks), or BLOCKED above
       },
       target: {
         mode: "r_multiple", // declared but NOT applied — engine bakes entry +/- value*R
