@@ -74,8 +74,8 @@ export function BacktestPanel({
   const [jobId, setJobId] = useState<string | null>(null);
   const [config, setConfig] = useState<BacktestConfig>(DEFAULT_CONFIG);
   const [running, setRunning] = useState(false);
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [from, setFrom] = useState(DEFAULT_FROM);
+  const [to, setTo] = useState(DEFAULT_TO);
   const [result, setResult] = useState<ServerRunResult | null>(null);
   const [overrides, setOverrides] = useState<RuleOverrides>(() =>
     initialOverrides(strategyId, definition),
