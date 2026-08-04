@@ -620,7 +620,12 @@ export function BacktestPanel({
 
       {(runsQuery.data ?? []).length > 0 ? (
         <div className="rounded-lg border border-border bg-card">
-          <p className="border-b border-border px-4 py-3 text-sm font-medium">Previous runs</p>
+          <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+            <p className="text-sm font-medium">Previous runs</p>
+            <Button asChild variant="ghost" size="sm" className="gap-1.5">
+              <Link to="/runs">Compare all runs</Link>
+            </Button>
+          </div>
           <ul className="divide-y divide-border">
             {(runsQuery.data ?? []).map((r) => {
               const stats = r.stats as { netPnl?: number; trades?: number; winRate?: number };
@@ -634,12 +639,30 @@ export function BacktestPanel({
                   <span className="ml-auto text-muted-foreground">
                     {new Date(r.created_at).toLocaleString()}
                   </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2"
+                    onClick={() => void loadRun(r.id)}
+                  >
+                    Load
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-7"
+                    aria-label="Delete run"
+                    onClick={() => void deleteRun(r.id)}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
                 </li>
               );
             })}
           </ul>
         </div>
       ) : null}
+
     </div>
   );
 }
