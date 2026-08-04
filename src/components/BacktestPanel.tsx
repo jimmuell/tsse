@@ -35,6 +35,10 @@ import {
 } from "@/lib/backtest/types";
 import type { StrategyDefinition } from "@/lib/strategy-schema";
 
+function num(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
 function money(value: number): string {
   return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
