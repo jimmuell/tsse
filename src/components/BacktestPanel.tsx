@@ -358,6 +358,10 @@ export function BacktestPanel({
             {running ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
             Run backtest
           </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={resetAll}>
+            <RotateCcw className="size-4" />
+            Reset to defaults
+          </Button>
           <Button asChild variant="ghost" size="sm" className="gap-1.5">
             <Link to="/datasets">
               <Database className="size-4" />
