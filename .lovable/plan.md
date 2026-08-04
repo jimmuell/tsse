@@ -1,20 +1,23 @@
-# Deploy the backtest-callback function
+# Deploy the backtest-callback function (and fix a schema gap first)
 
-## What's true right now
+## What I found
 
-The function code exists in this project at `supabase/functions/backtest-callback/index.ts`, and `supabase/config.toml` already pins `verify_jwt = false` for it. No invocation logs exist yet, which only means it has never been called — not that it is missing.
+The function code exists at `supabase/functions/backtest-callback/index.ts`, and `supabase/config.toml` already pins `verify_jwt = false` for it. No invocation logs exist yet — that only means it has never been called.
 
-In this setup backend functions deploy automatically, so no clicking is needed on your side.
+But the project currently does not build. The callback code reads and writes columns on `backtest_jobs` that the database does not have:
 
-## What I'll do (one action, no code changes)
+- `engine_run_id` — the engine's own run identifier, which is the only way a callback can find the job it belongs to
+- `symbol` and `timeframe` — used to label the stored result
 
-1. Trigger a deploy of `backtest-callback` so we know for certain it is live. Its code and `config.toml` stay exactly as they are.
-2. Report back its callback URL, which is the value the engine must be configured with:
-   `https://<project>.supabase.co/functions/v1/backtest-callback`
-3. Confirm it responds (an unsigned request should be rejected with 401 — that is the correct, healthy answer and proves signature checking is on).
+Without `engine_run_id` the callback can never match an incoming result to a job, so deploying as-is would fail at runtime even if it deployed cleanly.
 
-## Then: the secret
+## Plan
 
-The engine and this app must hold the same callback secret. `WIT_CALLBACK_HMAC_SECRET` is already stored here, along with `ENGINE_URL` and `WIT_ENGINE_SERVICE_KEY`. If the engine side does not yet have the identical secret value, you will need to set it there — I cannot read the stored value back out, so if it was lost we generate a new one and set it in both places.
+1. **Migration** — add the missing columns to `backtest_jobs`: `engine_run_id` (text, unique so a repeated callback can't create ambiguity), `symbol`, and `timeframe`. Existing access rules stay as they are: a user only ever sees their own jobs.
+2. **Fix the two type errors** in `src/lib/engine.functions.ts` and the public callback route so the build is green again. No behaviour change beyond writing `engine_run_id` when a job is submitted.
+3. **Deploy** `backtest-callback`. Its code and `config.toml` stay exactly as they are (`verify_jwt` remains false).
+4. **Report the callback URL** — `https://<project>.supabase.co/functions/v1/backtest-callback` — and confirm an unsigned request is rejected with 401, which proves signature checking is live.
 
-Nothing else in the app changes.
+## Then: the shared secret
+
+`WIT_CALLBACK_HMAC_SECRET`, `ENGINE_URL` and `WIT_ENGINE_SERVICE_KEY` are already stored here. The engine must hold the identical callback secret. Stored secret values can't be read back out, so if the engine side doesn't have it, we generate a fresh one and set it in both places.
