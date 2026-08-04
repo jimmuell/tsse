@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { normalizeDefinition } from "@/lib/strategy-schema";
 import { compileWireConfig } from "./wit/wire-config";
 
 const SubmitSchema = z.object({
@@ -35,23 +36,25 @@ export const submitEngineBacktest = createServerFn({ method: "POST" })
     const { submitToEngine } = await import("./engine.server");
     const supabase = context.supabase;
 
+    const { data: strategy, error: strategyError } = await supabase
+      .from("strategies")
+      .select("id, definition")
+      .eq("id", data.strategyId)
+      .single();
+    if (strategyError || !strategy) throw new Error("Strategy not found");
+    const definition = normalizeDefinition(strategy.definition);
+
     const { config: wireConfig, blockers } = compileWireConfig({
       from: data.from,
       to: data.to,
       config: { commission: data.config.commission, slippage: data.config.slippage },
+      definition,
     });
     if (blockers.length > 0 || !wireConfig) {
       throw new Error(
         `Not ready for the engine yet: ${blockers.map((b) => `${b.field} — ${b.message}`).join("; ")}`,
       );
     }
-
-    const { data: strategy, error: strategyError } = await supabase
-      .from("strategies")
-      .select("id")
-      .eq("id", data.strategyId)
-      .single();
-    if (strategyError || !strategy) throw new Error("Strategy not found");
 
     const { data: job, error: jobError } = await supabase
       .from("backtest_jobs")
