@@ -184,8 +184,9 @@ export function BacktestPanel({
   // A WIT audit has one source of truth: the engine. There is no local-backtester
   // fallback in the result path — see WIT-SEAM-02.
   async function run() {
-    if (!symbol.trim() || !timeframe.trim()) {
-      toast.error("Set a symbol and timeframe first.");
+    const timeframe = (overrides["chart.timeframe"] ?? "").trim();
+    if (!timeframe) {
+      toast.error("Set the chart timeframe first (1m or 5m).");
       return;
     }
     if (!from || !to) {
@@ -202,15 +203,18 @@ export function BacktestPanel({
       const { jobId: id } = await submitEngineBacktest({
         data: {
           strategyId,
-          symbol: symbol.trim(),
-          timeframe: timeframe.trim(),
+          symbol,
+          timeframe,
           config,
           from,
           to,
+          // The engine audits exactly what is on screen, not the saved copy.
+          rules: overrides,
         },
       });
       setJobId(id);
       toast.success("Queued on the engine — results will appear here when it finishes.");
+
     } catch (err) {
       setRunning(false);
       toast.error(err instanceof Error ? err.message : "The engine could not accept that run.");
