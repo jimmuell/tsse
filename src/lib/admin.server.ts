@@ -145,3 +145,52 @@ export async function setRole(targetUserId: string, role: "user" | "admin", acto
 }
 
 export { countOf };
+
+export type AdminRun = {
+  id: string;
+  createdAt: string;
+  userId: string;
+  userName: string | null;
+  strategyName: string;
+  datasetName: string;
+  netProfit: number | null;
+  trades: number | null;
+  winRate: number | null;
+};
+
+/** Recent backtest runs across every account, newest first. */
+export async function listAllRuns(limit = 25): Promise<AdminRun[]> {
+  const db = await admin();
+  const { data: runs, error } = await db
+    .from("backtest_runs")
+    .select("id, created_at, user_id, strategy_id, dataset_name, stats")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  const rows = runs ?? [];
+  if (rows.length === 0) return [];
+
+  const [{ data: profiles }, { data: strategies }] = await Promise.all([
+    db.from("profiles").select("id, display_name").in("id", [...new Set(rows.map((r) => r.user_id))]),
+    db.from("strategies").select("id, name").in("id", [...new Set(rows.map((r) => r.strategy_id))]),
+  ]);
+  const nameByUser = new Map((profiles ?? []).map((p) => [p.id, p.display_name]));
+  const nameByStrategy = new Map((strategies ?? []).map((s) => [s.id, s.name]));
+
+  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+
+  return rows.map((r) => {
+    const stats = (r.stats ?? {}) as Record<string, unknown>;
+    return {
+      id: r.id,
+      createdAt: r.created_at,
+      userId: r.user_id,
+      userName: nameByUser.get(r.user_id) ?? null,
+      strategyName: nameByStrategy.get(r.strategy_id) ?? "—",
+      datasetName: r.dataset_name || "—",
+      netProfit: num(stats['netProfit'] ?? stats['net_profit'] ?? stats['pnl']),
+      trades: num(stats['trades'] ?? stats['totalTrades'] ?? stats['num_trades']),
+      winRate: num(stats['winRate'] ?? stats['win_rate']),
+    };
+  });
+}

@@ -23,3 +23,11 @@ export const setUserRole = createServerFn({ method: "POST" })
     await assertAdmin(context.supabase, context.userId);
     return setRole(data.userId, data.role, context.userId);
   });
+
+export const getAllRuns = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { assertAdmin, listAllRuns } = await import("./admin.server");
+    await assertAdmin(context.supabase, context.userId);
+    return listAllRuns(25);
+  });
