@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as DatasetsIndexRouteImport } from './routes/datasets/index'
 import { Route as RunsIndexRouteImport } from './routes/runs/index'
 import { Route as StrategiesIdRouteImport } from './routes/strategies/$id'
@@ -25,6 +26,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DatasetsIndexRoute = DatasetsIndexRouteImport.update({
@@ -57,6 +63,7 @@ const ApiPublicBacktestCallbackRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/strategies/$id': typeof StrategiesIdRoute
   '/strategies/new': typeof StrategiesNewRoute
   '/datasets/': typeof DatasetsIndexRoute
@@ -66,6 +73,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/strategies/$id': typeof StrategiesIdRoute
   '/strategies/new': typeof StrategiesNewRoute
   '/datasets': typeof DatasetsIndexRoute
@@ -76,6 +84,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/strategies/$id': typeof StrategiesIdRoute
   '/strategies/new': typeof StrategiesNewRoute
   '/datasets/': typeof DatasetsIndexRoute
@@ -87,6 +96,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/reset-password'
     | '/strategies/$id'
     | '/strategies/new'
     | '/datasets/'
@@ -96,6 +106,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/reset-password'
     | '/strategies/$id'
     | '/strategies/new'
     | '/datasets'
@@ -105,6 +116,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/auth'
+    | '/reset-password'
     | '/strategies/$id'
     | '/strategies/new'
     | '/datasets/'
@@ -115,6 +127,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   StrategiesIdRoute: typeof StrategiesIdRoute
   StrategiesNewRoute: typeof StrategiesNewRoute
   DatasetsIndexRoute: typeof DatasetsIndexRoute
@@ -136,6 +149,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/datasets/': {
@@ -179,6 +199,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   StrategiesIdRoute: StrategiesIdRoute,
   StrategiesNewRoute: StrategiesNewRoute,
   DatasetsIndexRoute: DatasetsIndexRoute,
