@@ -72,9 +72,9 @@ type RunRow = {
   dataset_name: string;
   created_at: string;
   stats: Partial<BacktestStats> | null;
-  equity: EquityPoint[] | null;
   strategies: { name: string } | null;
 };
+
 
 function RunsPage() {
   const { user, loading } = useAuth();
@@ -88,14 +88,15 @@ function RunsPage() {
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth" });
   }, [loading, user, navigate]);
-
+  // The list intentionally omits the heavy `equity` JSON column: 200 runs of
+  // curve points is megabytes of payload and was making this page take seconds.
   const runsQuery = useQuery({
     queryKey: ["all-backtest-runs", user?.id],
     enabled: !!user,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("backtest_runs")
-        .select("id, strategy_id, dataset_name, created_at, stats, equity, strategies(name)")
+        .select("id, strategy_id, dataset_name, created_at, stats, strategies(name)")
         .order("created_at", { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -104,7 +105,31 @@ function RunsPage() {
   });
 
   const runs = runsQuery.data ?? [];
+
   const compared = runs.filter((r) => selected.includes(r.id)).slice(0, MAX_COMPARE);
+  const comparedIds = compared.map((r) => r.id);
+
+  // Equity curves are only needed once the user actually opens the comparison,
+  // and only for the handful of runs they ticked.
+  const equityQuery = useQuery({
+    queryKey: ["backtest-run-equity", [...comparedIds].sort()],
+    enabled: showCompare && comparedIds.length > 0,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("backtest_runs")
+        .select("id, equity")
+        .in("id", comparedIds);
+      if (error) throw error;
+      const map = new Map<string, EquityPoint[]>();
+      for (const row of data ?? []) {
+        map.set(row.id, (row.equity ?? []) as unknown as EquityPoint[]);
+      }
+      return map;
+    },
+  });
+
+
 
   function toggle(id: string) {
     setShowCompare(false);
@@ -135,11 +160,12 @@ function RunsPage() {
   }
 
   /** Merge each compared run's equity into one time-keyed series set. */
+  const equityById = equityQuery.data;
   const chartData = useMemo(() => {
     const byDate = new Map<string, Record<string, number | string>>();
     compared.forEach((run, i) => {
       const key = `run${i}`;
-      for (const point of run.equity ?? []) {
+      for (const point of equityById?.get(run.id) ?? []) {
         const date = new Date(point.t).toISOString().slice(0, 10);
         const row = byDate.get(date) ?? { t: date };
         row[key] = Math.round(point.equity * 100) / 100;
@@ -147,7 +173,9 @@ function RunsPage() {
       }
     });
     return [...byDate.values()].sort((a, b) => String(a["t"]).localeCompare(String(b["t"])));
-  }, [compared]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [equityById, comparedIds.join(",")]);
+
 
   const metrics: { label: string; value: (s: Partial<BacktestStats>) => string }[] = [
     { label: "Net P&L", value: (s) => money(num(s.netPnl)) },
@@ -238,7 +266,11 @@ function RunsPage() {
               <div className="rounded-lg border border-border bg-card p-4">
                 <p className="mb-3 text-sm font-medium">Equity curves</p>
                 <div className="h-64">
+                  {equityQuery.isPending ? (
+                    <Skeleton className="h-full w-full" />
+                  ) : (
                   <ResponsiveContainer width="100%" height="100%">
+
                     <LineChart data={chartData}>
                       <CartesianGrid strokeOpacity={0.15} vertical={false} />
                       <XAxis dataKey="t" tick={{ fontSize: 11 }} minTickGap={40} />
@@ -261,6 +293,8 @@ function RunsPage() {
                       ))}
                     </LineChart>
                   </ResponsiveContainer>
+                  )}
+
                 </div>
               </div>
 
