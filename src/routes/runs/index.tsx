@@ -88,14 +88,15 @@ function RunsPage() {
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth" });
   }, [loading, user, navigate]);
-
+  // The list intentionally omits the heavy `equity` JSON column: 200 runs of
+  // curve points is megabytes of payload and was making this page take seconds.
   const runsQuery = useQuery({
     queryKey: ["all-backtest-runs", user?.id],
     enabled: !!user,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("backtest_runs")
-        .select("id, strategy_id, dataset_name, created_at, stats, equity, strategies(name)")
+        .select("id, strategy_id, dataset_name, created_at, stats, strategies(name)")
         .order("created_at", { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -104,6 +105,7 @@ function RunsPage() {
   });
 
   const runs = runsQuery.data ?? [];
+
   const compared = runs.filter((r) => selected.includes(r.id)).slice(0, MAX_COMPARE);
 
   function toggle(id: string) {
