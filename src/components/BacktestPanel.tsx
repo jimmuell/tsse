@@ -448,8 +448,11 @@ export function BacktestPanel({
               </SelectContent>
             </Select>
             <p className="font-mono text-[11px] text-muted-foreground">
-              Engine price history: ES full history — 2008-01-02 to present
+              Engine price history: ES, starts 2008-01-02. Coverage ends where the
+              engine&apos;s data ends — not today. The exact end date is not reported to
+              this page, so an end date past it silently truncates the audit.
             </p>
+
             {selectedDataset ? (
               <p className="text-[11px] text-muted-foreground">
                 Imported set coverage (reference only, not used by the audit):{" "}
