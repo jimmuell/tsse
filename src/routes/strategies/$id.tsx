@@ -30,9 +30,8 @@ import { validateDefinition } from "@/lib/validation";
 import { toMarkdown } from "@/lib/markdown";
 
 export const Route = createFileRoute("/strategies/$id")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    extract: search['extract'] === true || search['extract'] === "true" ? true : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): { extract?: true } =>
+    search['extract'] === true || search['extract'] === "true" ? { extract: true } : {},
   head: () => ({
     meta: [
       { title: "Strategy specification — TSSE" },
