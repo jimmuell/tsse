@@ -107,6 +107,29 @@ function RunsPage() {
   const runs = runsQuery.data ?? [];
 
   const compared = runs.filter((r) => selected.includes(r.id)).slice(0, MAX_COMPARE);
+  const comparedIds = compared.map((r) => r.id);
+
+  // Equity curves are only needed once the user actually opens the comparison,
+  // and only for the handful of runs they ticked.
+  const equityQuery = useQuery({
+    queryKey: ["backtest-run-equity", [...comparedIds].sort()],
+    enabled: showCompare && comparedIds.length > 0,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("backtest_runs")
+        .select("id, equity")
+        .in("id", comparedIds);
+      if (error) throw error;
+      const map = new Map<string, EquityPoint[]>();
+      for (const row of data ?? []) {
+        map.set(row.id, (row.equity ?? []) as unknown as EquityPoint[]);
+      }
+      return map;
+    },
+  });
+
+
 
   function toggle(id: string) {
     setShowCompare(false);
