@@ -34,7 +34,7 @@ const SUPABASE_PUBLISHABLE_KEY =
   process.env["SUPABASE_PUBLISHABLE_KEY"] || process.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
 const TEST_EMAIL = process.env["TEST_EMAIL"];
 const TEST_PASSWORD = process.env["TEST_PASSWORD"];
-const STRATEGY_ID = "208f677d-799c-47f9-938c-d8260560987c"; // E2E Test ORB
+const FIXTURE_NAME = "E2E Test ORB";
 
 if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
   throw new Error("SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY are not set (.env).");
@@ -64,16 +64,25 @@ async function main() {
     SUPABASE_PUBLISHABLE_KEY as string,
   );
 
-  const { error: authError } = await supabase.auth.signInWithPassword({
+  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
     email: TEST_EMAIL as string,
     password: TEST_PASSWORD as string,
   });
   if (authError) throw authError;
 
+  const { data: strategy, error: strategyError } = await supabase
+    .from("strategies")
+    .select("id")
+    .eq("user_id", authData.user.id)
+    .eq("name", FIXTURE_NAME)
+    .maybeSingle();
+  if (strategyError) throw strategyError;
+  if (!strategy) throw new Error(`No strategy named "${FIXTURE_NAME}" found for this account.`);
+
   const { data: jobs, error: jobsError } = await supabase
     .from("backtest_jobs")
     .select("id, created_at, status, run_id, payload")
-    .eq("strategy_id", STRATEGY_ID)
+    .eq("strategy_id", strategy.id)
     .order("created_at", { ascending: false })
     .limit(10);
   if (jobsError) throw jobsError;
