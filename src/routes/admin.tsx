@@ -102,7 +102,7 @@ function AdminPage() {
   });
 
   return (
-    <AppShell email={user?.email}>
+    <AppShell email={user?.email ?? null}>
       <div className="mb-6 flex items-center gap-3">
         <ShieldCheck className="size-5 text-primary" />
         <div>
