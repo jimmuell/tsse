@@ -1,7 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-
-const YOUTUBE_URL =
-  /^(https?:\/\/)?(www\.|m\.)?(youtube\.com\/(watch\?[^ ]*v=|shorts\/|live\/|embed\/)|youtu\.be\/)[\w-]{6,}/i;
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { resolveVideoSource } from "@/lib/video.functions";
@@ -22,6 +19,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { SOURCE_TYPES, emptyDefinition } from "@/lib/strategy-schema";
+import { YOUTUBE_URL } from "@/lib/youtube-url";
 
 export const Route = createFileRoute("/strategies/new")({
   head: () => ({
