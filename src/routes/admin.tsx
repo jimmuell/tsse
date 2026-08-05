@@ -93,6 +93,15 @@ function AdminPage() {
     refetchInterval: 30_000,
   });
 
+  const { data: allRuns } = useQuery({
+    queryKey: ["admin-all-runs"],
+    enabled: !!user && isAdmin,
+    queryFn: () => fetchAllRuns(),
+    refetchInterval: 30_000,
+  });
+
+
+
   const roleMutation = useMutation({
     mutationFn: (vars: { userId: string; role: "user" | "admin" }) => changeRole({ data: vars }),
     onSuccess: () => {
