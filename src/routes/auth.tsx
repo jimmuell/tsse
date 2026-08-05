@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useRole } from "@/hooks/useRole";
 
 export const Route = createFileRoute("/auth")({
   validateSearch: (search: Record<string, unknown>): { redirect?: string } =>
@@ -34,6 +35,7 @@ const RESEND_COOLDOWN_SECONDS = 60;
 function AuthPage() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+  const { isAdmin, loading: roleLoading } = useRole();
   const search = useSearch({ from: "/auth" });
   const [mode, setMode] = useState<"signin" | "signup" | "reset">("signin");
   const [email, setEmail] = useState("");
@@ -42,11 +44,11 @@ function AuthPage() {
   const [cooldown, setCooldown] = useState(0);
 
   useEffect(() => {
-    if (!loading && user) {
-      const target = search.redirect;
-      navigate({ to: target && target.startsWith("/") ? target : "/" });
-    }
-  }, [loading, user, navigate, search.redirect]);
+    if (loading || roleLoading || !user) return;
+    const target = search.redirect;
+    if (target && target.startsWith("/")) navigate({ to: target });
+    else navigate({ to: isAdmin ? "/admin" : "/" });
+  }, [loading, roleLoading, user, isAdmin, navigate, search.redirect]);
 
   useEffect(() => {
     if (cooldown <= 0) return;
