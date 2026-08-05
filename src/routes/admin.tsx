@@ -77,6 +77,7 @@ function AdminPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const fetchOverview = useServerFn(getAdminOverview);
+  const fetchAllRuns = useServerFn(getAllRuns);
   const changeRole = useServerFn(setUserRole);
 
   useEffect(() => {
