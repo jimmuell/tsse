@@ -205,12 +205,17 @@ function NewStrategy() {
                   type="button"
                   variant="secondary"
                   onClick={() => void loadVideo()}
-                  disabled={fetching}
+                  disabled={fetching || !urlValid}
                 >
                   {fetching ? "Fetching transcript…" : "Fetch transcript"}
                 </Button>
               )}
             </div>
+            {isVideo && sourceUrl.trim() && !urlValid && (
+              <p className="text-[11px] text-destructive">
+                Enter a valid YouTube link (youtube.com/watch, /shorts, /live or youtu.be).
+              </p>
+            )}
             <p className="text-[11px] text-muted-foreground">
               {isVideo
                 ? "We pull the title, channel and captions straight from the video."
