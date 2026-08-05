@@ -29,20 +29,42 @@ export const Route = createFileRoute("/reset-password")({
 
 function ResetPasswordPage() {
   const navigate = useNavigate();
-  const [ready, setReady] = useState(false);
+  const [status, setStatus] = useState<"checking" | "ready" | "invalid">("checking");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY" || session) setReady(true);
+    // A valid recovery link puts a recovery hash/param on the URL and emits
+    // PASSWORD_RECOVERY once the client has consumed it.
+    const hash = window.location.hash;
+    const hasRecoveryLink =
+      hash.includes("type=recovery") ||
+      hash.includes("access_token") ||
+      new URLSearchParams(window.location.search).has("code");
+
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") setStatus("ready");
     });
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) setReady(true);
-    });
+
+    if (!hasRecoveryLink) {
+      setStatus("invalid");
+    } else {
+      // Give the client a moment to exchange the link for a recovery session.
+      const timer = window.setTimeout(() => {
+        supabase.auth.getSession().then(({ data }) => {
+          setStatus((prev) => (prev === "ready" ? prev : data.session ? "ready" : "invalid"));
+        });
+      }, 800);
+      return () => {
+        window.clearTimeout(timer);
+        sub.subscription.unsubscribe();
+      };
+    }
+
     return () => sub.subscription.unsubscribe();
   }, []);
+
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
