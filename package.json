@@ -12,7 +12,8 @@
     "format": "prettier --write .",
     "test": "bun test",
     "e2e": "playwright test",
-    "inspect-jobs": "bun run scripts/inspect-jobs.ts"
+    "inspect-jobs": "bun run scripts/inspect-jobs.ts",
+    "seed-fixture": "bun run scripts/seed-fixture.ts"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.20",
