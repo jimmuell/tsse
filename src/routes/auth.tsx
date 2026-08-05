@@ -51,11 +51,11 @@ function AuthPage() {
     setBusy(true);
     try {
       if (mode === "forgot") {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/reset-password`,
-        });
+        const { setPasswordDirect } = await import("@/lib/dev-auth.functions");
+        const res = await setPasswordDirect({ data: { email, password } });
+        toast.success(res.created ? "Account created with that password." : "Password updated.");
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        toast.success("Password reset link sent. Check your email.");
         setMode("signin");
       } else if (mode === "signup") {
         const { data, error } = await supabase.auth.signUp({
@@ -115,7 +115,7 @@ function AuthPage() {
           </h1>
           <p className="mt-1 text-xs text-muted-foreground">
             {mode === "forgot"
-              ? "We'll email you a link to choose a new password."
+              ? "Set a new password for this account immediately — no email needed."
               : "Your strategy specifications are private to your account."}
           </p>
 
@@ -132,11 +132,10 @@ function AuthPage() {
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
-            {mode !== "forgot" ? (
-              <div className="space-y-1.5">
+            <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password" className="text-xs">
-                    Password
+                    {mode === "forgot" ? "New password" : "Password"}
                   </Label>
                   {mode === "signin" ? (
                     <button
@@ -144,7 +143,7 @@ function AuthPage() {
                       className="text-xs text-muted-foreground underline-offset-2 hover:underline"
                       onClick={() => setMode("forgot")}
                     >
-                      Forgot password?
+                      Set a new password
                     </button>
                   ) : null}
                 </div>
@@ -156,8 +155,7 @@ function AuthPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
-              </div>
-            ) : null}
+            </div>
             <Button type="submit" className="w-full" disabled={busy}>
               {busy
                 ? "Working…"
@@ -165,7 +163,7 @@ function AuthPage() {
                   ? "Sign in"
                   : mode === "signup"
                     ? "Create account"
-                    : "Send reset link"}
+                    : "Set password and sign in"}
             </Button>
           </form>
           {mode === "forgot" ? (
