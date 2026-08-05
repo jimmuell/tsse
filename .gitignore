@@ -34,3 +34,15 @@ dist-ssr
 # Deno / Supabase local artifacts
 deno.lock
 supabase/.temp/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# .env is Lovable-managed — tracked, public values only (Supabase project id/URL and
+# the publishable/anon key, which are safe to ship client-side). Test credentials
+# (TEST_EMAIL/TEST_PASSWORD) live in .env.e2e instead — never track that, or .env.local.
+.env.e2e
+.env.local

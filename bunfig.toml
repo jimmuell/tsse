@@ -1,3 +1,9 @@
+[test]
+# Scope `bun test`'s default file discovery to src/ only — e2e/*.spec.ts are
+# Playwright tests (run via `bun run e2e`), not bun:test, and bun's default glob
+# would otherwise pick them up and fail trying to run them with the wrong runner.
+root = "src"
+
 [install]
 saveTextLockfile = true
 # 24h supply-chain guard: skip package versions published less than a day ago.
