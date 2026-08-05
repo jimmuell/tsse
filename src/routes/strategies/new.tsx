@@ -70,55 +70,40 @@ function NewStrategy() {
   const manual = sourceType === "manual";
   const isVideo = sourceType === "video";
 
-  const lastFetchedUrl = useRef<string | null>(null);
+  const urlValid = YOUTUBE_URL.test(sourceUrl.trim());
 
-  async function loadVideo(opts: { silent?: boolean; preserveExistingTranscript?: boolean } = {}) {
-    const { silent = false, preserveExistingTranscript = false } = opts;
+  async function loadVideo() {
     const url = sourceUrl.trim();
     if (!url) {
-      if (!silent) toast.error("Paste a YouTube link first.");
+      toast.error("Paste a YouTube link first.");
+      return;
+    }
+    if (!YOUTUBE_URL.test(url)) {
+      toast.error("That doesn't look like a valid YouTube link.");
       return;
     }
     setFetching(true);
-    lastFetchedUrl.current = url;
     try {
       const info = (await fetchVideo({ data: { url } })) as VideoInfo;
       setVideo(info);
       setSourceUrl(info.canonicalUrl);
-      lastFetchedUrl.current = info.canonicalUrl;
       if (info.title) setName((prev) => prev.trim() || info.title);
-      const keepExisting = preserveExistingTranscript && sourceContent.trim().length > 0;
-      if (info.transcript && !keepExisting) {
+      if (info.transcript) {
         setSourceContent(info.transcript);
         toast.success("Video details and transcript pulled in.");
-      } else if (info.transcript && keepExisting) {
-        toast.info("Video details pulled in — your existing transcript was kept.");
       } else {
         toast.warning(
           "Got the video details, but this video has no public captions — paste the transcript below.",
         );
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Could not read that video link";
-      if (silent) toast.message(message);
-      else toast.error(message);
+      toast.error(err instanceof Error ? err.message : "Could not read that video link");
     } finally {
       setFetching(false);
     }
   }
 
-  // Paste a YouTube link and the transcript is fetched automatically.
-  useEffect(() => {
-    if (!isVideo) return;
-    const url = sourceUrl.trim();
-    if (!url || !YOUTUBE_URL.test(url)) return;
-    if (lastFetchedUrl.current === url) return;
-    const id = window.setTimeout(() => {
-      void loadVideo({ silent: true, preserveExistingTranscript: true });
-    }, 600);
-    return () => window.clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sourceUrl, isVideo]);
+
 
 
   async function create(e: React.FormEvent) {
@@ -220,12 +205,17 @@ function NewStrategy() {
                   type="button"
                   variant="secondary"
                   onClick={() => void loadVideo()}
-                  disabled={fetching}
+                  disabled={fetching || !urlValid}
                 >
                   {fetching ? "Fetching transcript…" : "Fetch transcript"}
                 </Button>
               )}
             </div>
+            {isVideo && sourceUrl.trim() && !urlValid && (
+              <p className="text-[11px] text-destructive">
+                Enter a valid YouTube link (youtube.com/watch, /shorts, /live or youtu.be).
+              </p>
+            )}
             <p className="text-[11px] text-muted-foreground">
               {isVideo
                 ? "We pull the title, channel and captions straight from the video."
