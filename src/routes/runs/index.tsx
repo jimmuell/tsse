@@ -293,6 +293,8 @@ function RunsPage() {
                       ))}
                     </LineChart>
                   </ResponsiveContainer>
+                  )}
+
                 </div>
               </div>
 
