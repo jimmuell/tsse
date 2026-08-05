@@ -447,11 +447,13 @@ export function BacktestPanel({
                 ))}
               </SelectContent>
             </Select>
+            {/* NOTE: the 2026-04-10 end date is hardcoded. It is only accurate because
+                the price-data subscription has lapsed and the dataset is frozen.
+                Replace with the engine-reported range when the datasets work lands. */}
             <p className="font-mono text-[11px] text-muted-foreground">
-              Engine price history: ES, starts 2008-01-02. Coverage ends where the
-              engine&apos;s data ends — not today. The exact end date is not reported to
-              this page, so an end date past it silently truncates the audit.
+              Engine price history: ES — 2008-01-02 to 2026-04-10
             </p>
+
 
             {selectedDataset ? (
               <p className="text-[11px] text-muted-foreground">
