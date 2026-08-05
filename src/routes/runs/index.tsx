@@ -160,11 +160,12 @@ function RunsPage() {
   }
 
   /** Merge each compared run's equity into one time-keyed series set. */
+  const equityById = equityQuery.data;
   const chartData = useMemo(() => {
     const byDate = new Map<string, Record<string, number | string>>();
     compared.forEach((run, i) => {
       const key = `run${i}`;
-      for (const point of run.equity ?? []) {
+      for (const point of equityById?.get(run.id) ?? []) {
         const date = new Date(point.t).toISOString().slice(0, 10);
         const row = byDate.get(date) ?? { t: date };
         row[key] = Math.round(point.equity * 100) / 100;
@@ -172,7 +173,9 @@ function RunsPage() {
       }
     });
     return [...byDate.values()].sort((a, b) => String(a["t"]).localeCompare(String(b["t"])));
-  }, [compared]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [equityById, comparedIds.join(",")]);
+
 
   const metrics: { label: string; value: (s: Partial<BacktestStats>) => string }[] = [
     { label: "Net P&L", value: (s) => money(num(s.netPnl)) },
