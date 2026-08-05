@@ -218,8 +218,13 @@ function NewStrategy() {
                 onChange={(e) => setSourceUrl(e.target.value)}
               />
               {isVideo && (
-                <Button type="button" variant="secondary" onClick={loadVideo} disabled={fetching}>
-                  {fetching ? "Fetching…" : "Fetch"}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => void loadVideo()}
+                  disabled={fetching}
+                >
+                  {fetching ? "Fetching transcript…" : "Fetch transcript"}
                 </Button>
               )}
             </div>
