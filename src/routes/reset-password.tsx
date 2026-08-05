@@ -101,42 +101,47 @@ function ResetPasswordPage() {
         <div className="rounded-md border border-border bg-card p-6">
           <h1 className="text-lg font-semibold">Set a new password</h1>
           <p className="mt-1 text-xs text-muted-foreground">
-            {ready
+            {status === "ready"
               ? "Enter a new password for your account."
-              : "Open this page from the reset link in your email."}
+              : status === "checking"
+                ? "Checking your reset link…"
+                : "This reset link is invalid or has expired. Request a new one from the sign-in page."}
           </p>
 
-          <form onSubmit={submit} className="mt-5 space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="new-password" className="text-xs">
-                New password
-              </Label>
-              <Input
-                id="new-password"
-                type="password"
-                required
-                minLength={6}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="confirm-password" className="text-xs">
-                Confirm password
-              </Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                required
-                minLength={6}
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={busy || !ready}>
-              {busy ? "Updating…" : "Update password"}
-            </Button>
-          </form>
+          {status === "invalid" ? null : (
+            <form onSubmit={submit} className="mt-5 space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="new-password" className="text-xs">
+                  New password
+                </Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  required
+                  minLength={6}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="confirm-password" className="text-xs">
+                  Confirm password
+                </Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  required
+                  minLength={6}
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={busy || status !== "ready"}>
+                {busy ? "Updating…" : "Update password"}
+              </Button>
+            </form>
+          )}
+
 
           <button
             type="button"
