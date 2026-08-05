@@ -266,7 +266,11 @@ function RunsPage() {
               <div className="rounded-lg border border-border bg-card p-4">
                 <p className="mb-3 text-sm font-medium">Equity curves</p>
                 <div className="h-64">
+                  {equityQuery.isPending ? (
+                    <Skeleton className="h-full w-full" />
+                  ) : (
                   <ResponsiveContainer width="100%" height="100%">
+
                     <LineChart data={chartData}>
                       <CartesianGrid strokeOpacity={0.15} vertical={false} />
                       <XAxis dataKey="t" tick={{ fontSize: 11 }} minTickGap={40} />
