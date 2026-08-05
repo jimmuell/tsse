@@ -227,15 +227,17 @@ function AuthPage() {
             </Button>
           ) : null}
 
-          <button
-            type="button"
-            className="mt-4 w-full text-xs text-muted-foreground underline-offset-2 hover:underline"
-            onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-          >
-            {mode === "signin"
-              ? "No account yet? Create one"
-              : "Already have an account? Sign in"}
-          </button>
+          {mode !== "forgot" ? (
+            <button
+              type="button"
+              className="mt-4 w-full text-xs text-muted-foreground underline-offset-2 hover:underline"
+              onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+            >
+              {mode === "signin"
+                ? "No account yet? Create one"
+                : "Already have an account? Sign in"}
+            </button>
+          ) : null}
         </div>
       </div>
     </div>
