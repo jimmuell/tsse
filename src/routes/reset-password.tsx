@@ -29,20 +29,42 @@ export const Route = createFileRoute("/reset-password")({
 
 function ResetPasswordPage() {
   const navigate = useNavigate();
-  const [ready, setReady] = useState(false);
+  const [status, setStatus] = useState<"checking" | "ready" | "invalid">("checking");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY" || session) setReady(true);
+    // A valid recovery link puts a recovery hash/param on the URL and emits
+    // PASSWORD_RECOVERY once the client has consumed it.
+    const hash = window.location.hash;
+    const hasRecoveryLink =
+      hash.includes("type=recovery") ||
+      hash.includes("access_token") ||
+      new URLSearchParams(window.location.search).has("code");
+
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") setStatus("ready");
     });
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) setReady(true);
-    });
+
+    if (!hasRecoveryLink) {
+      setStatus("invalid");
+    } else {
+      // Give the client a moment to exchange the link for a recovery session.
+      const timer = window.setTimeout(() => {
+        supabase.auth.getSession().then(({ data }) => {
+          setStatus((prev) => (prev === "ready" ? prev : data.session ? "ready" : "invalid"));
+        });
+      }, 800);
+      return () => {
+        window.clearTimeout(timer);
+        sub.subscription.unsubscribe();
+      };
+    }
+
     return () => sub.subscription.unsubscribe();
   }, []);
+
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -79,42 +101,47 @@ function ResetPasswordPage() {
         <div className="rounded-md border border-border bg-card p-6">
           <h1 className="text-lg font-semibold">Set a new password</h1>
           <p className="mt-1 text-xs text-muted-foreground">
-            {ready
+            {status === "ready"
               ? "Enter a new password for your account."
-              : "Open this page from the reset link in your email."}
+              : status === "checking"
+                ? "Checking your reset link…"
+                : "This reset link is invalid or has expired. Request a new one from the sign-in page."}
           </p>
 
-          <form onSubmit={submit} className="mt-5 space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="new-password" className="text-xs">
-                New password
-              </Label>
-              <Input
-                id="new-password"
-                type="password"
-                required
-                minLength={6}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="confirm-password" className="text-xs">
-                Confirm password
-              </Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                required
-                minLength={6}
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={busy || !ready}>
-              {busy ? "Updating…" : "Update password"}
-            </Button>
-          </form>
+          {status === "invalid" ? null : (
+            <form onSubmit={submit} className="mt-5 space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="new-password" className="text-xs">
+                  New password
+                </Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  required
+                  minLength={6}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="confirm-password" className="text-xs">
+                  Confirm password
+                </Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  required
+                  minLength={6}
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={busy || status !== "ready"}>
+                {busy ? "Updating…" : "Update password"}
+              </Button>
+            </form>
+          )}
+
 
           <button
             type="button"

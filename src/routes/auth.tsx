@@ -29,14 +29,17 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+const RESEND_COOLDOWN_SECONDS = 60;
+
 function AuthPage() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const search = useSearch({ from: "/auth" });
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "reset">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
 
   useEffect(() => {
     if (!loading && user) {
@@ -45,8 +48,46 @@ function AuthPage() {
     }
   }, [loading, user, navigate, search.redirect]);
 
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const id = window.setInterval(() => {
+      setCooldown((s) => (s <= 1 ? 0 : s - 1));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [cooldown]);
+
+  async function sendResetEmail() {
+    setBusy(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      // Rate limiting is enforced by the auth service; surface that distinctly.
+      const rateLimited =
+        error != null &&
+        (error.status === 429 ||
+          /rate limit|too many/i.test(error.message ?? ""));
+      if (rateLimited) {
+        toast.error("Too many reset attempts. Please try again in a few minutes.");
+        setCooldown(RESEND_COOLDOWN_SECONDS);
+        return;
+      }
+      // Any other outcome returns the same neutral message so the form cannot
+      // be used to discover which email addresses have accounts.
+      toast.success("If an account exists for that email, a reset link is on the way.");
+      setCooldown(RESEND_COOLDOWN_SECONDS);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (mode === "reset") {
+      if (cooldown > 0) return;
+      await sendResetEmail();
+      return;
+    }
     setBusy(true);
     try {
       if (mode === "signup") {
@@ -84,6 +125,7 @@ function AuthPage() {
     }
   }
 
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-secondary/40 px-6 py-12">
       <div className="w-full max-w-sm">
@@ -99,10 +141,16 @@ function AuthPage() {
 
         <div className="rounded-md border border-border bg-card p-6">
           <h1 className="text-lg font-semibold">
-            {mode === "signin" ? "Sign in" : "Create an account"}
+            {mode === "signin"
+              ? "Sign in"
+              : mode === "signup"
+                ? "Create an account"
+                : "Reset your password"}
           </h1>
           <p className="mt-1 text-xs text-muted-foreground">
-            Your strategy specifications are private to your account.
+            {mode === "reset"
+              ? "We'll email you a link to choose a new password."
+              : "Your strategy specifications are private to your account."}
           </p>
 
           <form onSubmit={submit} className="mt-5 space-y-4">
@@ -118,7 +166,8 @@ function AuthPage() {
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
-            <div className="space-y-1.5">
+            {mode === "reset" ? null : (
+              <div className="space-y-1.5">
                 <Label htmlFor="password" className="text-xs">
                   Password
                 </Label>
@@ -130,75 +179,70 @@ function AuthPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
-            </div>
-            <Button type="submit" className="w-full" disabled={busy}>
+              </div>
+            )}
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={busy || (mode === "reset" && cooldown > 0)}
+            >
               {busy
                 ? "Working…"
                 : mode === "signin"
                   ? "Sign in"
-                  : "Create account"}
+                  : mode === "signup"
+                    ? "Create account"
+                    : cooldown > 0
+                      ? `Resend in ${cooldown}s`
+                      : "Send reset link"}
             </Button>
           </form>
 
-          <div className="my-4 flex items-center gap-3">
-            <span className="h-px flex-1 bg-border" />
-            <span className="text-[11px] uppercase tracking-wide text-muted-foreground">or</span>
-            <span className="h-px flex-1 bg-border" />
-          </div>
-
-          <Button variant="outline" className="w-full" onClick={google}>
-            Continue with Google
-          </Button>
-
-          {import.meta.env.DEV ? (
-            <Button
+          {mode === "signin" ? (
+            <button
               type="button"
-              variant="secondary"
-              className="mt-2 w-full"
-              disabled={busy}
-              onClick={async () => {
-                // Dev/preview only (see the import.meta.env.DEV guard above) — never bundled
-                // into a production build, so no test credential ships in the public app.
-                // Override with VITE_TEST_EMAIL / VITE_TEST_PASSWORD if needed.
-                const testEmail = import.meta.env["VITE_TEST_EMAIL"] ?? "test@tsse.com";
-                const testPassword = import.meta.env["VITE_TEST_PASSWORD"] ?? "87654321";
-                setBusy(true);
-                try {
-                  const creds = { email: testEmail, password: testPassword };
-                  let { error } = await supabase.auth.signInWithPassword(creds);
-                  if (error) {
-                    const signUp = await supabase.auth.signUp({
-                      ...creds,
-                      options: { emailRedirectTo: window.location.origin },
-                    });
-                    if (signUp.error) throw signUp.error;
-                    if (!signUp.data.session) {
-                      const retry = await supabase.auth.signInWithPassword(creds);
-                      if (retry.error) throw retry.error;
-                    }
-                  }
-                  toast.success("Signed in as test user");
-                } catch (err) {
-                  toast.error(err instanceof Error ? err.message : "Auto sign-in failed");
-                } finally {
-                  setBusy(false);
-                }
-              }}
+              className="mt-3 w-full text-xs text-muted-foreground underline-offset-2 hover:underline"
+              onClick={() => setMode("reset")}
             >
-              Auto sign in (test user)
-            </Button>
+              Forgot password?
+            </button>
           ) : null}
 
-          <button
-            type="button"
-            className="mt-4 w-full text-xs text-muted-foreground underline-offset-2 hover:underline"
-            onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-          >
-            {mode === "signin"
-              ? "No account yet? Create one"
-              : "Already have an account? Sign in"}
-          </button>
+          {mode === "reset" ? (
+            <button
+              type="button"
+              className="mt-4 w-full text-xs text-muted-foreground underline-offset-2 hover:underline"
+              onClick={() => setMode("signin")}
+            >
+              Back to sign in
+            </button>
+          ) : (
+            <>
+              <div className="my-4 flex items-center gap-3">
+                <span className="h-px flex-1 bg-border" />
+                <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  or
+                </span>
+                <span className="h-px flex-1 bg-border" />
+              </div>
+
+              <Button variant="outline" className="w-full" onClick={google}>
+                Continue with Google
+              </Button>
+
+              <button
+                type="button"
+                className="mt-4 w-full text-xs text-muted-foreground underline-offset-2 hover:underline"
+                onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+              >
+                {mode === "signin"
+                  ? "No account yet? Create one"
+                  : "Already have an account? Sign in"}
+              </button>
+            </>
+          )}
         </div>
+
       </div>
     </div>
   );
