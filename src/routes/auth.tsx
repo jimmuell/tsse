@@ -107,10 +107,16 @@ function AuthPage() {
 
         <div className="rounded-md border border-border bg-card p-6">
           <h1 className="text-lg font-semibold">
-            {mode === "signin" ? "Sign in" : "Create an account"}
+            {mode === "signin"
+              ? "Sign in"
+              : mode === "signup"
+                ? "Create an account"
+                : "Reset your password"}
           </h1>
           <p className="mt-1 text-xs text-muted-foreground">
-            Your strategy specifications are private to your account.
+            {mode === "forgot"
+              ? "We'll email you a link to choose a new password."
+              : "Your strategy specifications are private to your account."}
           </p>
 
           <form onSubmit={submit} className="mt-5 space-y-4">
@@ -126,23 +132,51 @@ function AuthPage() {
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="password" className="text-xs">
-                Password
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                required
-                minLength={6}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+            {mode !== "forgot" ? (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password" className="text-xs">
+                    Password
+                  </Label>
+                  {mode === "signin" ? (
+                    <button
+                      type="button"
+                      className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+                      onClick={() => setMode("forgot")}
+                    >
+                      Forgot password?
+                    </button>
+                  ) : null}
+                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  minLength={6}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+            ) : null}
             <Button type="submit" className="w-full" disabled={busy}>
-              {busy ? "Working…" : mode === "signin" ? "Sign in" : "Create account"}
+              {busy
+                ? "Working…"
+                : mode === "signin"
+                  ? "Sign in"
+                  : mode === "signup"
+                    ? "Create account"
+                    : "Send reset link"}
             </Button>
           </form>
+          {mode === "forgot" ? (
+            <button
+              type="button"
+              className="mt-3 w-full text-xs text-muted-foreground underline-offset-2 hover:underline"
+              onClick={() => setMode("signin")}
+            >
+              Back to sign in
+            </button>
+          ) : null}
 
           <div className="my-4 flex items-center gap-3">
             <span className="h-px flex-1 bg-border" />
