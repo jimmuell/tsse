@@ -1,11 +1,14 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { FileCode2, LogOut, Plus } from "lucide-react";
+import { FileCode2, LogOut, Plus, ShieldCheck } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { useRole } from "@/hooks/useRole";
 
 export function AppShell({ children, email }: { children: ReactNode; email?: string | null }) {
   const navigate = useNavigate();
+  const { isAdmin } = useRole();
+
 
   return (
     <div className="min-h-screen bg-background">
