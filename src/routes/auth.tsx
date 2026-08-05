@@ -29,14 +29,17 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+const RESEND_COOLDOWN_SECONDS = 60;
+
 function AuthPage() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const search = useSearch({ from: "/auth" });
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "reset">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
 
   useEffect(() => {
     if (!loading && user) {
@@ -45,8 +48,46 @@ function AuthPage() {
     }
   }, [loading, user, navigate, search.redirect]);
 
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const id = window.setInterval(() => {
+      setCooldown((s) => (s <= 1 ? 0 : s - 1));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [cooldown]);
+
+  async function sendResetEmail() {
+    setBusy(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      // Rate limiting is enforced by the auth service; surface that distinctly.
+      const rateLimited =
+        error != null &&
+        (error.status === 429 ||
+          /rate limit|too many/i.test(error.message ?? ""));
+      if (rateLimited) {
+        toast.error("Too many reset attempts. Please try again in a few minutes.");
+        setCooldown(RESEND_COOLDOWN_SECONDS);
+        return;
+      }
+      // Any other outcome returns the same neutral message so the form cannot
+      // be used to discover which email addresses have accounts.
+      toast.success("If an account exists for that email, a reset link is on the way.");
+      setCooldown(RESEND_COOLDOWN_SECONDS);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (mode === "reset") {
+      if (cooldown > 0) return;
+      await sendResetEmail();
+      return;
+    }
     setBusy(true);
     try {
       if (mode === "signup") {
@@ -83,6 +124,7 @@ function AuthPage() {
       return;
     }
   }
+
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-secondary/40 px-6 py-12">
