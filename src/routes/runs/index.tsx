@@ -72,9 +72,9 @@ type RunRow = {
   dataset_name: string;
   created_at: string;
   stats: Partial<BacktestStats> | null;
-  equity: EquityPoint[] | null;
   strategies: { name: string } | null;
 };
+
 
 function RunsPage() {
   const { user, loading } = useAuth();
