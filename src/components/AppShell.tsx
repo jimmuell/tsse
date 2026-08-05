@@ -30,6 +30,14 @@ export function AppShell({ children, email }: { children: ReactNode; email?: str
           <Button asChild variant="ghost" size="sm">
             <Link to="/datasets">Data sets</Link>
           </Button>
+          {isAdmin ? (
+            <Button asChild variant="ghost" size="sm" className="gap-1.5">
+              <Link to="/admin">
+                <ShieldCheck className="size-4" />
+                Admin
+              </Link>
+            </Button>
+          ) : null}
 
           <Button asChild size="sm" className="gap-1.5">
 
