@@ -8,6 +8,7 @@
     "e2e/**/*.ts",
     "scripts/**/*.ts"
   ],
+  "exclude": ["**/*.test.ts"],
   "compilerOptions": {
     "target": "ES2022",
     "jsx": "react-jsx",

@@ -56,7 +56,7 @@ const OPERATORS = [
 export function normalizeRuleText(raw: string): string {
   const lines = raw
     .split(/\r?\n/)
-    .map((l) => l.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, "").trim())
+    .map((l) => l.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, "").trim())
     .map((l) => l.replace(/\s*[;.]$/, "").trim())
     .filter((l) => l.length > 0 && !l.startsWith("//") && !l.startsWith("#"));
   return lines.join(" and ");
@@ -80,7 +80,6 @@ function tokenize(input: string): Token[] {
     .replace(/\bis\s+below\b/gi, " < ")
     .replace(/\bis\s+equal\s+to\b/gi, " == ")
     .replace(/%/g, " percent ");
-
 
   const tokens: Token[] = [];
   let i = 0;

@@ -156,15 +156,9 @@ function AuthPage() {
               onClick={async () => {
                 // Dev/preview only (see the import.meta.env.DEV guard above) — never bundled
                 // into a production build, so no test credential ships in the public app.
-                // Configure VITE_TEST_EMAIL / VITE_TEST_PASSWORD in this environment to use it.
-                const testEmail = import.meta.env["VITE_TEST_EMAIL"];
-                const testPassword = import.meta.env["VITE_TEST_PASSWORD"];
-                if (!testEmail || !testPassword) {
-                  toast.error(
-                    "VITE_TEST_EMAIL / VITE_TEST_PASSWORD are not set for this environment.",
-                  );
-                  return;
-                }
+                // Override with VITE_TEST_EMAIL / VITE_TEST_PASSWORD if needed.
+                const testEmail = import.meta.env["VITE_TEST_EMAIL"] ?? "test@tsse.com";
+                const testPassword = import.meta.env["VITE_TEST_PASSWORD"] ?? "87654321";
                 setBusy(true);
                 try {
                   const creds = { email: testEmail, password: testPassword };
