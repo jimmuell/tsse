@@ -1,4 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+const YOUTUBE_URL =
+  /^(https?:\/\/)?(www\.|m\.)?(youtube\.com\/(watch\?[^ ]*v=|shorts\/|live\/|embed\/)|youtu\.be\/)[\w-]{6,}/i;
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { resolveVideoSource } from "@/lib/video.functions";
