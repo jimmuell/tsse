@@ -204,6 +204,71 @@ function AdminPage() {
           </section>
 
           <section className="rounded-md border border-border bg-card">
+            <div className="flex items-center justify-between border-b border-border p-4">
+              <h2 className="text-sm font-semibold">Backtest runs — all accounts</h2>
+              <Button asChild variant="ghost" size="sm">
+                <Link to="/runs">Compare my runs</Link>
+              </Button>
+            </div>
+            {!allRuns ? (
+              <div className="p-4">
+                <Skeleton className="h-20" />
+              </div>
+            ) : allRuns.length === 0 ? (
+              <p className="p-4 text-xs text-muted-foreground">No runs recorded yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                      <th className="p-3 font-medium">When</th>
+                      <th className="p-3 font-medium">Account</th>
+                      <th className="p-3 font-medium">Strategy</th>
+                      <th className="p-3 font-medium">Data set</th>
+                      <th className="p-3 text-right font-medium">Trades</th>
+                      <th className="p-3 text-right font-medium">Win rate</th>
+                      <th className="p-3 text-right font-medium">Net P/L</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allRuns.map((r) => (
+                      <tr key={r.id} className="border-b border-border/60 last:border-0">
+                        <td className="p-3 text-xs text-muted-foreground">
+                          {new Date(r.createdAt).toLocaleString()}
+                        </td>
+                        <td className="p-3">
+                          {r.userName ?? (
+                            <span className="font-mono text-[11px] text-muted-foreground">
+                              {r.userId.slice(0, 8)}
+                            </span>
+                          )}
+                          {r.userId === user?.id ? (
+                            <Badge variant="secondary" className="ml-2 text-[10px]">
+                              you
+                            </Badge>
+                          ) : null}
+                        </td>
+                        <td className="p-3">{r.strategyName}</td>
+                        <td className="p-3 text-xs text-muted-foreground">{r.datasetName}</td>
+                        <td className="p-3 text-right font-mono tabular-nums">
+                          {r.trades ?? "—"}
+                        </td>
+                        <td className="p-3 text-right font-mono tabular-nums">
+                          {r.winRate == null ? "—" : `${(r.winRate * (r.winRate <= 1 ? 100 : 1)).toFixed(1)}%`}
+                        </td>
+                        <td className="p-3 text-right font-mono tabular-nums">
+                          {r.netProfit == null ? "—" : r.netProfit.toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+
+          <section className="rounded-md border border-border bg-card">
             <h2 className="border-b border-border p-4 text-sm font-semibold">Accounts</h2>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
