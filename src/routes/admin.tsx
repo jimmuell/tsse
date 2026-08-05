@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { useRole } from "@/hooks/useRole";
-import { getAdminOverview, setUserRole } from "@/lib/admin.functions";
+import { getAdminOverview, getAllRuns, setUserRole } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
