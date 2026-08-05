@@ -24,12 +24,9 @@ export function AppShell({ children, email }: { children: ReactNode; email?: str
             </span>
           </Link>
           <div className="flex-1" />
-          <Button asChild variant="ghost" size="sm">
-            <Link to="/runs">My Runs</Link>
-          </Button>
-          {isAdmin ? (
+          {!isAdmin ? (
             <Button asChild variant="ghost" size="sm">
-              <Link to="/datasets">Data sets</Link>
+              <Link to="/runs">My Runs</Link>
             </Button>
           ) : null}
           {isAdmin ? (
