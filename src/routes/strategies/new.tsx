@@ -69,30 +69,56 @@ function NewStrategy() {
   const manual = sourceType === "manual";
   const isVideo = sourceType === "video";
 
-  async function loadVideo() {
+  const lastFetchedUrl = useRef<string | null>(null);
+
+  async function loadVideo(opts: { silent?: boolean; preserveExistingTranscript?: boolean } = {}) {
+    const { silent = false, preserveExistingTranscript = false } = opts;
     const url = sourceUrl.trim();
     if (!url) {
-      toast.error("Paste a YouTube link first.");
+      if (!silent) toast.error("Paste a YouTube link first.");
       return;
     }
     setFetching(true);
+    lastFetchedUrl.current = url;
     try {
       const info = (await fetchVideo({ data: { url } })) as VideoInfo;
       setVideo(info);
       setSourceUrl(info.canonicalUrl);
+      lastFetchedUrl.current = info.canonicalUrl;
       if (info.title) setName((prev) => prev.trim() || info.title);
-      if (info.transcript) {
+      const keepExisting = preserveExistingTranscript && sourceContent.trim().length > 0;
+      if (info.transcript && !keepExisting) {
         setSourceContent(info.transcript);
         toast.success("Video details and transcript pulled in.");
+      } else if (info.transcript && keepExisting) {
+        toast.info("Video details pulled in — your existing transcript was kept.");
       } else {
-        toast.warning("Got the video details, but this video has no public captions — paste the transcript below.");
+        toast.warning(
+          "Got the video details, but this video has no public captions — paste the transcript below.",
+        );
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not read that video link");
+      const message = err instanceof Error ? err.message : "Could not read that video link";
+      if (silent) toast.message(message);
+      else toast.error(message);
     } finally {
       setFetching(false);
     }
   }
+
+  // Paste a YouTube link and the transcript is fetched automatically.
+  useEffect(() => {
+    if (!isVideo) return;
+    const url = sourceUrl.trim();
+    if (!url || !YOUTUBE_URL.test(url)) return;
+    if (lastFetchedUrl.current === url) return;
+    const id = window.setTimeout(() => {
+      void loadVideo({ silent: true, preserveExistingTranscript: true });
+    }, 600);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceUrl, isVideo]);
+
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
