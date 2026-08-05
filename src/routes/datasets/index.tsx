@@ -56,6 +56,7 @@ type Progress = { bytes: number; total: number; rows: number } | null;
 
 function DatasetsPage() {
   const { user, loading } = useAuth();
+  const { isAdmin, loading: roleLoading } = useRole();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -71,9 +72,14 @@ function DatasetsPage() {
     if (!loading && !user) navigate({ to: "/auth" });
   }, [loading, user, navigate]);
 
+  // Data sets are admin-curated: a non-admin typing the URL is sent home.
+  useEffect(() => {
+    if (!loading && user && !roleLoading && !isAdmin) navigate({ to: "/" });
+  }, [loading, user, roleLoading, isAdmin, navigate]);
+
   const datasetsQuery = useQuery({
     queryKey: ["datasets"],
-    enabled: !!user,
+    enabled: !!user && isAdmin,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("datasets")
@@ -83,6 +89,17 @@ function DatasetsPage() {
       return data;
     },
   });
+
+  if (!roleLoading && user && !isAdmin) {
+    return (
+      <AppShell email={user.email ?? null}>
+        <p className="text-sm text-muted-foreground">
+          Data sets are managed by an administrator.
+        </p>
+      </AppShell>
+    );
+  }
+
 
   /**
    * Reads the file in slices, parses each slice, and streams bars into the
