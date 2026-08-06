@@ -182,11 +182,30 @@ export function BacktestPanel({
   const datasets = datasetsQuery.data ?? [];
   const selectedDataset = datasets.find((d) => d.id === datasetId) ?? null;
 
+  /** Pull the bar timeframe (1m / 5m) out of a data set's id or label. */
+  function datasetTimeframe(d: { id: string; label?: string }): string | null {
+    const text = `${d.id} ${d.label ?? ""}`.toLowerCase();
+    const match = text.match(/\b(1|5)\s*-?\s*min\b/);
+    return match ? `${match[1]}m` : null;
+  }
+
+  function chooseDataset(id: string) {
+    setDatasetId(id);
+    const found = datasets.find((d) => d.id === id);
+    const tf = found ? datasetTimeframe(found) : null;
+    if (tf) setRule("chart.timeframe", tf);
+  }
+
   useEffect(() => {
     if (datasetId || datasets.length === 0) return;
     const preferred = datasets.find((d) => d.economics_supported) ?? datasets[0];
-    if (preferred) setDatasetId(preferred.id);
+    if (preferred) {
+      setDatasetId(preferred.id);
+      const tf = datasetTimeframe(preferred);
+      if (tf) setRule("chart.timeframe", tf);
+    }
   }, [datasets.length]);
+
 
   /** Re-open an archived run in the results area below. */
   async function loadRun(runId: string) {
