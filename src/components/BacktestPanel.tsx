@@ -291,6 +291,14 @@ export function BacktestPanel({
       toast.error("From date is after To date.");
       return;
     }
+    if (!datasetId) {
+      toast.error("Choose a data set first.");
+      return;
+    }
+    if (selectedDataset && !selectedDataset.economics_supported) {
+      toast.error("This data set's contract economics aren't supported yet — choose another.");
+      return;
+    }
     setRunning(true);
     setResult(null);
     try {
@@ -299,6 +307,7 @@ export function BacktestPanel({
           strategyId,
           symbol,
           timeframe,
+          dataset: datasetId,
           config,
           from,
           to,
