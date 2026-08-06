@@ -720,6 +720,35 @@ export function BacktestPanel({
         </div>
       ) : null}
 
+      <AlertDialog
+        open={pendingDeleteId !== null}
+        onOpenChange={(open) => {
+          if (!open && !deletingRun) setPendingDeleteId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this run?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The stored stats, equity curve and trade list for this run are removed permanently.
+              Your specification and data sets are untouched.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingRun}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deletingRun}
+              onClick={(e) => {
+                e.preventDefault();
+                if (pendingDeleteId) void deleteRun(pendingDeleteId);
+              }}
+            >
+              {deletingRun ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
+
   );
 }
