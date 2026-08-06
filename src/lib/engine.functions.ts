@@ -63,6 +63,7 @@ export const submitEngineBacktest = createServerFn({ method: "POST" })
     const { config: wireConfig, blockers } = compileWireConfig({
       from: data.from,
       to: data.to,
+      dataset: data.dataset,
       config: { commission: data.config.commission, slippage: data.config.slippage },
       definition,
     });
