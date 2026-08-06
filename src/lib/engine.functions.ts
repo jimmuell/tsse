@@ -34,6 +34,13 @@ export const engineStatus = createServerFn({ method: "GET" }).handler(async () =
   configured: Boolean(process.env["ENGINE_URL"] && process.env["WIT_ENGINE_SERVICE_KEY"]),
 }));
 
+/** The engine's own dataset catalog — the run screen must never hand-type or cache a list. */
+export const engineDatasets = createServerFn({ method: "GET" }).handler(async () => {
+  const { listEngineDatasets } = await import("./engine.server");
+  return listEngineDatasets();
+});
+
+
 export const submitEngineBacktest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => SubmitSchema.parse(input))
