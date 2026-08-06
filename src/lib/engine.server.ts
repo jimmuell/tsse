@@ -72,3 +72,53 @@ export async function submitToEngine(request: EngineJobRequest): Promise<EngineS
 
   return { runId: parsed.run_id, status: parsed.status ?? "queued" };
 }
+
+export type EngineDataset = {
+  id: string;
+  label: string;
+  description: string;
+  symbol: string;
+  point_value: number;
+  tick_size: number;
+  economics_supported: boolean;
+  date_range: { start: string; end: string };
+};
+
+/** Reads the engine's own dataset catalog. The engine is the single source of truth —
+ *  the app never hand-types or caches a dataset list. */
+export async function listEngineDatasets(): Promise<EngineDataset[]> {
+  const { baseUrl, serviceKey } = requireEngineConfig();
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}/wit/v1/datasets`, {
+      method: "GET",
+      headers: { authorization: `Bearer ${serviceKey}` },
+    });
+  } catch (error) {
+    throw new Error(
+      `Could not reach the backtest engine: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+
+  const text = await response.text();
+
+  if (!response.ok) {
+    let parsed: WitErrorBody = {};
+    try {
+      parsed = text ? (JSON.parse(text) as WitErrorBody) : {};
+    } catch {
+      /* engine returned a non-JSON error body */
+    }
+    throw new Error(
+      parsed.error?.message ?? `The engine could not list data sets (HTTP ${response.status}).`,
+    );
+  }
+
+  let parsed: { datasets?: EngineDataset[] } = {};
+  try {
+    parsed = text ? (JSON.parse(text) as { datasets?: EngineDataset[] }) : {};
+  } catch {
+    throw new Error("The engine returned a non-JSON data set list.");
+  }
+  return parsed.datasets ?? [];
+}

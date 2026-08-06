@@ -33,6 +33,7 @@ function compile(def: StrategyDefinition) {
   return compileWireConfig({
     from: "2025-01-01",
     to: "2026-08-04",
+    dataset: "ES_5min_continuous",
     config: { commission: 0, slippage: 0 },
     definition: def,
   });

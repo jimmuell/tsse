@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { compileStrategy } from "@/lib/backtest/compile";
-import { engineStatus, submitEngineBacktest } from "@/lib/engine.functions";
+import { engineDatasets, engineStatus, submitEngineBacktest } from "@/lib/engine.functions";
 import { useBacktestJob } from "@/hooks/useBacktestJob";
 import {
   RULE_FIELDS,
@@ -165,27 +165,17 @@ export function BacktestPanel({
   const invertedRange = Boolean(from && to && from > to);
 
   const datasetsQuery = useQuery({
-    queryKey: ["datasets"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("datasets")
-        .select("id, name, symbol, timeframe, bar_count, start_at, end_at")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
+    queryKey: ["engine-datasets"],
+    queryFn: () => engineDatasets(),
+    staleTime: 5 * 60 * 1000,
   });
   const datasets = datasetsQuery.data ?? [];
   const selectedDataset = datasets.find((d) => d.id === datasetId) ?? null;
-  const coverageFrom = selectedDataset?.start_at
-    ? new Date(selectedDataset.start_at).toISOString().slice(0, 10)
-    : null;
-  const coverageTo = selectedDataset?.end_at
-    ? new Date(selectedDataset.end_at).toISOString().slice(0, 10)
-    : null;
 
   useEffect(() => {
-    if (!datasetId && datasets.length > 0) setDatasetId(datasets[0]!.id);
+    if (datasetId || datasets.length === 0) return;
+    const preferred = datasets.find((d) => d.economics_supported) ?? datasets[0];
+    if (preferred) setDatasetId(preferred.id);
   }, [datasets.length]);
 
   /** Re-open an archived run in the results area below. */
@@ -301,6 +291,14 @@ export function BacktestPanel({
       toast.error("From date is after To date.");
       return;
     }
+    if (!datasetId) {
+      toast.error("Choose a data set first.");
+      return;
+    }
+    if (selectedDataset && !selectedDataset.economics_supported) {
+      toast.error("This data set's contract economics aren't supported yet — choose another.");
+      return;
+    }
     setRunning(true);
     setResult(null);
     try {
@@ -309,6 +307,7 @@ export function BacktestPanel({
           strategyId,
           symbol,
           timeframe,
+          dataset: datasetId,
           config,
           from,
           to,
@@ -434,37 +433,29 @@ export function BacktestPanel({
               <SelectTrigger id="dataset">
                 <SelectValue
                   placeholder={
-                    datasets.length ? "Select a data set" : "No data sets imported yet"
+                    datasetsQuery.isLoading
+                      ? "Loading data sets…"
+                      : datasets.length === 0
+                        ? "No data sets available on the engine"
+                        : "Select a data set"
                   }
                 />
               </SelectTrigger>
               <SelectContent className="bg-popover">
                 {datasets.map((d) => (
-                  <SelectItem key={d.id} value={d.id}>
-                    {d.name} · {d.symbol} {d.timeframe} ·{" "}
-                    {(d.bar_count ?? 0).toLocaleString()} bars
+                  <SelectItem key={d.id} value={d.id} disabled={!d.economics_supported}>
+                    {d.label} · {d.symbol}
+                    {d.economics_supported ? "" : " (unsupported)"}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {/* NOTE: the 2026-04-10 end date is hardcoded. It is only accurate because
-                the price-data subscription has lapsed and the dataset is frozen.
-                Replace with the engine-reported range when the datasets work lands. */}
-            <p className="font-mono text-[11px] text-muted-foreground">
-              Engine price history: ES — 2008-01-02 to 2026-04-10
-            </p>
-
-
             {selectedDataset ? (
-              <p className="text-[11px] text-muted-foreground">
-                Imported set coverage (reference only, not used by the audit):{" "}
-                {coverageFrom ?? "—"} → {coverageTo ?? "—"}
+              <p className="font-mono text-[11px] text-muted-foreground">
+                Engine price history: {selectedDataset.symbol} —{" "}
+                {selectedDataset.date_range.start} to {selectedDataset.date_range.end}
               </p>
-            ) : (
-              <p className="text-[11px] text-muted-foreground">
-                Import price history on the Data sets page to see its date range here.
-              </p>
-            )}
+            ) : null}
           </div>
           <div className="space-y-1.5">
 

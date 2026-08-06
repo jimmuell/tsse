@@ -9,6 +9,7 @@ const SubmitSchema = z.object({
   strategyId: z.string().uuid(),
   symbol: z.string().min(1),
   timeframe: z.string().min(1),
+  dataset: z.string().min(1),
   config: z.object({
     capital: z.number(),
     commission: z.number(),
@@ -23,6 +24,7 @@ const SubmitSchema = z.object({
   rules: z.record(z.string(), z.string()).optional(),
 });
 
+
 export type SubmitEngineResult = {
   jobId: string;
 };
@@ -31,6 +33,13 @@ export type SubmitEngineResult = {
 export const engineStatus = createServerFn({ method: "GET" }).handler(async () => ({
   configured: Boolean(process.env["ENGINE_URL"] && process.env["WIT_ENGINE_SERVICE_KEY"]),
 }));
+
+/** The engine's own dataset catalog — the run screen must never hand-type or cache a list. */
+export const engineDatasets = createServerFn({ method: "GET" }).handler(async () => {
+  const { listEngineDatasets } = await import("./engine.server");
+  return listEngineDatasets();
+});
+
 
 export const submitEngineBacktest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -54,6 +63,7 @@ export const submitEngineBacktest = createServerFn({ method: "POST" })
     const { config: wireConfig, blockers } = compileWireConfig({
       from: data.from,
       to: data.to,
+      dataset: data.dataset,
       config: { commission: data.config.commission, slippage: data.config.slippage },
       definition,
     });
