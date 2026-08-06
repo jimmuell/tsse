@@ -39,6 +39,9 @@ export type WireConfigInput = {
   from: string;
   /** ET calendar date, YYYY-MM-DD. */
   to: string;
+  /** The dataset id the user picked from the engine's GET /wit/v1/datasets list. HONOURED —
+   *  an unrecognised id now fails the run loudly rather than silently defaulting. */
+  dataset: string;
   /** commission/slippage carry real economics into costs.*; the rest of BacktestConfig
    *  (defaultQuantity, allowLong, allowShort) has no wire-config equivalent — sizing is
    *  hard-gated to exactly one contract and the engine does not expose a long/short toggle. */
