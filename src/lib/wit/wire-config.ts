@@ -251,6 +251,12 @@ export function compileWireConfig(input: WireConfigInput): {
       message: "A from/to date range is required — the engine has no window to audit.",
     });
   }
+  if (!input.dataset) {
+    blockers.push({
+      field: "data.dataset",
+      message: "Choose a data set before running — none selected.",
+    });
+  }
 
   const timeframeRaw = section(input.definition, "chart", "timeframe");
   const granularity = deriveGranularity(timeframeRaw);
@@ -313,7 +319,7 @@ export function compileWireConfig(input: WireConfigInput): {
       proxy_for: null,
     },
     data: {
-      dataset: "ES_5min_continuous", // declared but NOT applied — engine always reads its own parquet
+      dataset: input.dataset, // HONOURED — the id the user picked from GET /wit/v1/datasets
       granularity_needed: "1min", // declared but NOT applied
       window: { start: input.from, end: input.to }, // HONOURED — real TSSE data
     },
