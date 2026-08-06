@@ -207,7 +207,11 @@ export function BacktestPanel({
     });
   }
 
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [deletingRun, setDeletingRun] = useState(false);
+
   async function deleteRun(runId: string) {
+
     setDeletingRun(true);
     const { error } = await supabase.from("backtest_runs").delete().eq("id", runId);
     setDeletingRun(false);
