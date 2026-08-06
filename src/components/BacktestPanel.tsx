@@ -189,22 +189,31 @@ export function BacktestPanel({
     return match ? `${match[1]}m` : null;
   }
 
-  function chooseDataset(id: string) {
-    setDatasetId(id);
-    const found = datasets.find((d) => d.id === id);
-    const tf = found ? datasetTimeframe(found) : null;
+  function applyDataset(d: {
+    id: string;
+    label?: string;
+    date_range?: { start: string; end: string };
+  }) {
+    setDatasetId(d.id);
+    const tf = datasetTimeframe(d);
     if (tf) setRule("chart.timeframe", tf);
+    // Prefill the run window with the data set's real coverage range.
+    if (d.date_range?.start) setFrom(d.date_range.start);
+    if (d.date_range?.end) setTo(d.date_range.end);
+  }
+
+  function chooseDataset(id: string) {
+    const found = datasets.find((d) => d.id === id);
+    if (found) applyDataset(found);
+    else setDatasetId(id);
   }
 
   useEffect(() => {
     if (datasetId || datasets.length === 0) return;
     const preferred = datasets.find((d) => d.economics_supported) ?? datasets[0];
-    if (preferred) {
-      setDatasetId(preferred.id);
-      const tf = datasetTimeframe(preferred);
-      if (tf) setRule("chart.timeframe", tf);
-    }
+    if (preferred) applyDataset(preferred);
   }, [datasets.length]);
+
 
 
   /** Re-open an archived run in the results area below. */
