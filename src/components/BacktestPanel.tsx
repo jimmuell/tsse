@@ -424,37 +424,29 @@ export function BacktestPanel({
               <SelectTrigger id="dataset">
                 <SelectValue
                   placeholder={
-                    datasets.length ? "Select a data set" : "No data sets imported yet"
+                    datasetsQuery.isLoading
+                      ? "Loading data sets…"
+                      : datasets.length === 0
+                        ? "No data sets available on the engine"
+                        : "Select a data set"
                   }
                 />
               </SelectTrigger>
               <SelectContent className="bg-popover">
                 {datasets.map((d) => (
-                  <SelectItem key={d.id} value={d.id}>
-                    {d.name} · {d.symbol} {d.timeframe} ·{" "}
-                    {(d.bar_count ?? 0).toLocaleString()} bars
+                  <SelectItem key={d.id} value={d.id} disabled={!d.economics_supported}>
+                    {d.label} · {d.symbol}
+                    {d.economics_supported ? "" : " (unsupported)"}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {/* NOTE: the 2026-04-10 end date is hardcoded. It is only accurate because
-                the price-data subscription has lapsed and the dataset is frozen.
-                Replace with the engine-reported range when the datasets work lands. */}
-            <p className="font-mono text-[11px] text-muted-foreground">
-              Engine price history: ES — 2008-01-02 to 2026-04-10
-            </p>
-
-
             {selectedDataset ? (
-              <p className="text-[11px] text-muted-foreground">
-                Imported set coverage (reference only, not used by the audit):{" "}
-                {coverageFrom ?? "—"} → {coverageTo ?? "—"}
+              <p className="font-mono text-[11px] text-muted-foreground">
+                Engine price history: {selectedDataset.symbol} —{" "}
+                {selectedDataset.date_range.start} to {selectedDataset.date_range.end}
               </p>
-            ) : (
-              <p className="text-[11px] text-muted-foreground">
-                Import price history on the Data sets page to see its date range here.
-              </p>
-            )}
+            ) : null}
           </div>
           <div className="space-y-1.5">
 
