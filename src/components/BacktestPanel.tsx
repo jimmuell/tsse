@@ -709,7 +709,7 @@ export function BacktestPanel({
                     size="icon"
                     className="size-7"
                     aria-label="Delete run"
-                    onClick={() => void deleteRun(r.id)}
+                    onClick={() => setPendingDeleteId(r.id)}
                   >
                     <Trash2 className="size-3.5" />
                   </Button>
