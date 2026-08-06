@@ -22,6 +22,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { compileStrategy } from "@/lib/backtest/compile";
 import { engineDatasets, engineStatus, submitEngineBacktest } from "@/lib/engine.functions";
@@ -207,8 +217,15 @@ export function BacktestPanel({
     });
   }
 
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [deletingRun, setDeletingRun] = useState(false);
+
   async function deleteRun(runId: string) {
+
+    setDeletingRun(true);
     const { error } = await supabase.from("backtest_runs").delete().eq("id", runId);
+    setDeletingRun(false);
+    setPendingDeleteId(null);
     if (error) {
       toast.error("Could not delete that run.");
       return;
@@ -216,6 +233,7 @@ export function BacktestPanel({
     await queryClient.invalidateQueries({ queryKey: ["backtest-runs", strategyId] });
     toast.success("Run deleted.");
   }
+
 
 
   const runsQuery = useQuery({
@@ -701,7 +719,7 @@ export function BacktestPanel({
                     size="icon"
                     className="size-7"
                     aria-label="Delete run"
-                    onClick={() => void deleteRun(r.id)}
+                    onClick={() => setPendingDeleteId(r.id)}
                   >
                     <Trash2 className="size-3.5" />
                   </Button>
@@ -712,6 +730,35 @@ export function BacktestPanel({
         </div>
       ) : null}
 
+      <AlertDialog
+        open={pendingDeleteId !== null}
+        onOpenChange={(open) => {
+          if (!open && !deletingRun) setPendingDeleteId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this run?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The stored stats, equity curve and trade list for this run are removed permanently.
+              Your specification and data sets are untouched.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingRun}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deletingRun}
+              onClick={(e) => {
+                e.preventDefault();
+                if (pendingDeleteId) void deleteRun(pendingDeleteId);
+              }}
+            >
+              {deletingRun ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
+
   );
 }
