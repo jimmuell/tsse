@@ -208,7 +208,10 @@ export function BacktestPanel({
   }
 
   async function deleteRun(runId: string) {
+    setDeletingRun(true);
     const { error } = await supabase.from("backtest_runs").delete().eq("id", runId);
+    setDeletingRun(false);
+    setPendingDeleteId(null);
     if (error) {
       toast.error("Could not delete that run.");
       return;
@@ -216,6 +219,7 @@ export function BacktestPanel({
     await queryClient.invalidateQueries({ queryKey: ["backtest-runs", strategyId] });
     toast.success("Run deleted.");
   }
+
 
 
   const runsQuery = useQuery({
