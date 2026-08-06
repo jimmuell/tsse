@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { compileStrategy } from "@/lib/backtest/compile";
-import { engineStatus, submitEngineBacktest } from "@/lib/engine.functions";
+import { engineDatasets, engineStatus, submitEngineBacktest } from "@/lib/engine.functions";
 import { useBacktestJob } from "@/hooks/useBacktestJob";
 import {
   RULE_FIELDS,
@@ -165,27 +165,17 @@ export function BacktestPanel({
   const invertedRange = Boolean(from && to && from > to);
 
   const datasetsQuery = useQuery({
-    queryKey: ["datasets"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("datasets")
-        .select("id, name, symbol, timeframe, bar_count, start_at, end_at")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
+    queryKey: ["engine-datasets"],
+    queryFn: () => engineDatasets(),
+    staleTime: 5 * 60 * 1000,
   });
   const datasets = datasetsQuery.data ?? [];
   const selectedDataset = datasets.find((d) => d.id === datasetId) ?? null;
-  const coverageFrom = selectedDataset?.start_at
-    ? new Date(selectedDataset.start_at).toISOString().slice(0, 10)
-    : null;
-  const coverageTo = selectedDataset?.end_at
-    ? new Date(selectedDataset.end_at).toISOString().slice(0, 10)
-    : null;
 
   useEffect(() => {
-    if (!datasetId && datasets.length > 0) setDatasetId(datasets[0]!.id);
+    if (datasetId || datasets.length === 0) return;
+    const preferred = datasets.find((d) => d.economics_supported) ?? datasets[0];
+    if (preferred) setDatasetId(preferred.id);
   }, [datasets.length]);
 
   /** Re-open an archived run in the results area below. */
