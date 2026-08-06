@@ -466,7 +466,7 @@ export function BacktestPanel({
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
             <Label htmlFor="dataset">Data set</Label>
-            <Select value={datasetId} onValueChange={setDatasetId}>
+            <Select value={datasetId} onValueChange={chooseDataset}>
               <SelectTrigger id="dataset">
                 <SelectValue
                   placeholder={
