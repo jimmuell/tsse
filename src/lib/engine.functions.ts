@@ -9,6 +9,7 @@ const SubmitSchema = z.object({
   strategyId: z.string().uuid(),
   symbol: z.string().min(1),
   timeframe: z.string().min(1),
+  dataset: z.string().min(1),
   config: z.object({
     capital: z.number(),
     commission: z.number(),
@@ -22,6 +23,7 @@ const SubmitSchema = z.object({
   /** Current on-screen edits, keyed "section.key". The engine must audit what the user sees. */
   rules: z.record(z.string(), z.string()).optional(),
 });
+
 
 export type SubmitEngineResult = {
   jobId: string;
