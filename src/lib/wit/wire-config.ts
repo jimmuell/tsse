@@ -325,7 +325,13 @@ export function compileWireConfig(input: WireConfigInput): {
     },
     session: {
       tz: "America/New_York", // HONOURED hard gate — single legal value
-      trade_window: ["09:30", "11:00"], // matches the schema's own stated session instants
+      // Must start no earlier than setup_entry.params.range_end (09:45 below). The engine
+      // builds the day's volume profile over the range_start/range_end window FIRST, then scans
+      // entries within trade_window — an entry inside the profile window is evaluated against a
+      // value area built partly from bars that haven't closed yet relative to that entry
+      // (look-ahead bias). ["09:30", "11:00"] here (profile and entry windows overlapping)
+      // was confirmed against the live engine to produce materially worse, biased results.
+      trade_window: ["09:45", "11:00"],
       force_flat: "15:55", // declared but NOT applied — engine bakes last RTH bar
     },
     bias: {
@@ -337,8 +343,12 @@ export function compileWireConfig(input: WireConfigInput): {
       level: "va_high_low", // declared but NOT applied — engine always uses VAH/VAL structurally
       order: "market_on_close", // HONOURED hard gate D4 — single legal value
       params: {
-        range_start: "09:30", // matches the schema's own stated session instants
-        range_end: "11:00",
+        // The opening-range / volume-profile window (VPORBConfig.range_start/range_end on the
+        // engine side). Must END at or before session.trade_window STARTS — entries can only be
+        // evaluated against a value area that has already finished forming, never one still
+        // being built from bars ahead of the entry bar.
+        range_start: "09:30",
+        range_end: "09:45",
         value_area_pct: valueAreaPct ?? 0, // HONOURED — from setup.value_area_pct (or prose fallback), or BLOCKED above
         granularity: granularity ?? "", // HONOURED — from chart.timeframe, or BLOCKED above
       },

@@ -100,3 +100,40 @@ test("entry '1. close > vah' still compiles — the list marker is stripped, the
   expect(blockers.some((b) => b.field === "setup_entry.trigger")).toBe(false);
   expect(config?.setup_entry.trigger).toBe("bar_close_beyond_level");
 });
+
+/**
+ * Regression guard for WIT-SEAM-10: setup_entry.params.range_start/range_end define the
+ * engine's volume-profile window; session.trade_window defines the entry-scanning window. The
+ * engine builds the profile first, then scans entries — if trade_window starts before the
+ * profile window ends, entries inside the overlap are evaluated against a value area built from
+ * bars that haven't closed yet relative to that entry (look-ahead bias). Confirmed against the
+ * live engine: sending profile 09:30-11:00 / entries 09:30-11:00 (the pre-fix wire config)
+ * reproduces TSSE's own published headline backtest number.
+ */
+function toMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+}
+
+describe("compileWireConfig — profile window / trade window must not overlap", () => {
+  test("setup_entry.params.range_start/range_end are 09:30-09:45", () => {
+    const { config, blockers } = compile(baseDef());
+    expect(blockers).toEqual([]);
+    expect(config?.setup_entry.params.range_start).toBe("09:30");
+    expect(config?.setup_entry.params.range_end).toBe("09:45");
+  });
+
+  test("session.trade_window starts at 09:45", () => {
+    const { config, blockers } = compile(baseDef());
+    expect(blockers).toEqual([]);
+    expect(config?.session.trade_window[0]).toBe("09:45");
+  });
+
+  test("invariant: the profile window end is never after the trade window start", () => {
+    const { config, blockers } = compile(baseDef());
+    expect(blockers).toEqual([]);
+    const profileEnd = toMinutes(config!.setup_entry.params.range_end);
+    const tradeStart = toMinutes(config!.session.trade_window[0]);
+    expect(profileEnd).toBeLessThanOrEqual(tradeStart);
+  });
+});
