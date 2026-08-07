@@ -213,11 +213,11 @@ export const SPEC_SECTIONS: SpecSection[] = [
     title: "Filters",
     description: "Conditions that block otherwise valid trades.",
     fields: [
-      { key: "volatility_filter", label: "Volatility / ATR filter", rule: true, multiline: true },
-      { key: "volume_filter", label: "Volume filter", rule: true },
-      { key: "news_filter", label: "News / economic event filter", multiline: true },
-      { key: "calendar_filter", label: "Day of week / holiday filter" },
-      { key: "regime_filter", label: "Market regime filter", rule: true, multiline: true },
+      { key: "volatility_filter", label: "Volatility / ATR filter", rule: true, multiline: true, hint: "e.g. atr(14) > 4. Not applied by the audit engine." },
+      { key: "volume_filter", label: "Volume filter", rule: true, hint: "e.g. volume > 1000. Not applied by the audit engine." },
+      { key: "news_filter", label: "News / economic event filter", multiline: true, hint: "Events you would stand aside for. Free text; not run." },
+      { key: "calendar_filter", label: "Day of week / holiday filter", hint: "e.g. skip Mondays and half-days. Free text; not run." },
+      { key: "regime_filter", label: "Market regime filter", rule: true, multiline: true, hint: "e.g. close > sma(close, 200). Not applied by the audit engine." },
     ],
   },
   {
@@ -226,10 +226,11 @@ export const SPEC_SECTIONS: SpecSection[] = [
     title: "Trade constraints",
     description: "Hard operational limits.",
     fields: [
-      { key: "max_trades", label: "Maximum trades" },
-      { key: "daily_loss_limit", label: "Daily loss limit" },
-      { key: "daily_profit_limit", label: "Daily profit limit" },
-      { key: "trading_hours", label: "Trading hours", required: true },
+      { key: "max_trades", label: "Maximum trades", hint: "Per day, e.g. 1. The audit takes at most one trade a day." },
+      { key: "daily_loss_limit", label: "Daily loss limit", hint: "Dollar stop for the day, e.g. 500. Not applied by the audit." },
+      { key: "daily_profit_limit", label: "Daily profit limit", hint: "Dollar goal for the day, e.g. 1000. Not applied by the audit." },
+      { key: "trading_hours", label: "Trading hours", required: true, hint: "e.g. 09:45-10:55 ET. The audit bakes its own entry window." },
+
       { key: "overnight", label: "Overnight positions allowed" },
       { key: "cooldown", label: "Cooldown period" },
     ],
