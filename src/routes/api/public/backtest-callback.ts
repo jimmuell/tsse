@@ -27,6 +27,9 @@ const BacktestResultSchema = z.object({
     dataset_version: z.string().nullable(),
     config_hash: z.string().nullable(),
     completed_at: z.string().nullable(),
+    // The engine already sends this on the backtest path; optional because older runs and the
+    // event-study path do not. Declared so it is kept instead of being silently stripped.
+    dataset_id: z.string().nullable().optional(),
   }),
 });
 
