@@ -115,15 +115,6 @@ export function BacktestPanel({
   function setRule(key: string, value: string) {
     setOverrides((prev) => {
       const next = { ...prev, [key]: value };
-      // Sizing method is a required spec field but the engine always sizes at a fixed
-      // 1 contract — fill it in automatically so a sizing formula never trips validation.
-      if (
-        key === "position_sizing.sizing_formula" &&
-        value.trim() &&
-        !(next["position_sizing.sizing_method"] ?? "").trim()
-      ) {
-        next["position_sizing.sizing_method"] = "Fixed 1 contract";
-      }
       try {
         window.localStorage.setItem(`tsse:rules:${strategyId}`, JSON.stringify(next));
       } catch {

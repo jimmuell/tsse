@@ -69,11 +69,11 @@ export const SPEC_SECTIONS: SpecSection[] = [
     title: "Metadata",
     description: "Identity and provenance of the strategy.",
     fields: [
-      { key: "strategy_name", label: "Strategy name", required: true },
-      { key: "author", label: "Author" },
-      { key: "source", label: "Source" },
-      { key: "version", label: "Version" },
-      { key: "description", label: "Description", multiline: true, required: true },
+      { key: "strategy_name", label: "Strategy name", required: true, hint: "A short name you will recognise later. Not read by the audit." },
+      { key: "author", label: "Author", hint: "Who wrote the strategy. Free text; not read by the audit." },
+      { key: "source", label: "Source", hint: "Where it came from — video link, book, forum. Free text." },
+      { key: "version", label: "Version", hint: "Your own label, e.g. v1.2. Free text; not read by the audit." },
+      { key: "description", label: "Description", multiline: true, required: true, hint: "Plain-English summary of the idea. Free text; not read by the audit." },
       { key: "confidence", label: "Confidence", hint: "0-100" },
     ],
   },
@@ -83,10 +83,10 @@ export const SPEC_SECTIONS: SpecSection[] = [
     title: "Market",
     description: "Where the strategy is traded.",
     fields: [
-      { key: "markets", label: "Markets", required: true },
-      { key: "exchange", label: "Exchange" },
-      { key: "symbols", label: "Symbols" },
-      { key: "asset_class", label: "Asset class" },
+      { key: "markets", label: "Markets", required: true, hint: "e.g. US equity index futures. Audit always runs the chosen data set." },
+      { key: "exchange", label: "Exchange", hint: "e.g. CME. Free text; not read by the audit." },
+      { key: "symbols", label: "Symbols", hint: "e.g. ES, MES. Audit uses the data set you pick on the run screen." },
+      { key: "asset_class", label: "Asset class", hint: "e.g. Futures / Equities / FX. Free text." },
     ],
   },
   {
@@ -95,10 +95,10 @@ export const SPEC_SECTIONS: SpecSection[] = [
     title: "Chart",
     description: "Data resolution and session context.",
     fields: [
-      { key: "timeframe", label: "Timeframe", required: true },
-      { key: "session", label: "Session" },
-      { key: "timezone", label: "Timezone" },
-      { key: "data_requirements", label: "Data requirements", multiline: true },
+      { key: "timeframe", label: "Timeframe", required: true, hint: "Must be 1m or 5m — anything else blocks the run." },
+      { key: "session", label: "Session", hint: "e.g. Regular hours 09:30-16:00. Audit bakes the RTH session." },
+      { key: "timezone", label: "Timezone", hint: "e.g. America/New_York. Audit always runs New York time." },
+      { key: "data_requirements", label: "Data requirements", multiline: true, hint: "Any extra history or feeds needed. Free text." },
     ],
   },
   {
@@ -107,8 +107,8 @@ export const SPEC_SECTIONS: SpecSection[] = [
     title: "Setup",
     description: "Conditions that create a potential trade.",
     fields: [
-      { key: "setup_type", label: "Setup type", required: true },
-      { key: "setup_conditions", label: "Setup conditions", rule: true, multiline: true, required: true },
+      { key: "setup_type", label: "Setup type", required: true, hint: "e.g. Opening-range break of the value area." },
+      { key: "setup_conditions", label: "Setup conditions", rule: true, multiline: true, required: true, hint: "One condition per line, e.g. close > vah. Lines are ANDed." },
       {
         key: "value_area_pct",
         label: "Value area %",
@@ -122,9 +122,9 @@ export const SPEC_SECTIONS: SpecSection[] = [
     title: "Market bias",
     description: "How long versus short is determined.",
     fields: [
-      { key: "bias_method", label: "Bias method", required: true },
-      { key: "long_condition", label: "Long condition", rule: true, multiline: true },
-      { key: "short_condition", label: "Short condition", rule: true, multiline: true },
+      { key: "bias_method", label: "Bias method", required: true, hint: "e.g. Break above VAH is long, below VAL is short." },
+      { key: "long_condition", label: "Long condition", rule: true, multiline: true, hint: "Comparison expression, e.g. close > vah. One per line." },
+      { key: "short_condition", label: "Short condition", rule: true, multiline: true, hint: "Comparison expression, e.g. close < val. One per line." },
     ],
   },
   {
@@ -133,9 +133,9 @@ export const SPEC_SECTIONS: SpecSection[] = [
     title: "Entry rules",
     description: "Exact Boolean trigger for entering a position.",
     fields: [
-      { key: "long_entry", label: "Long entry expression", rule: true, multiline: true, required: true },
-      { key: "short_entry", label: "Short entry expression", rule: true, multiline: true },
-      { key: "entry_notes", label: "Notes", multiline: true },
+      { key: "long_entry", label: "Long entry expression", rule: true, multiline: true, required: true, hint: "Must compare bar close to a level, e.g. close > vah." },
+      { key: "short_entry", label: "Short entry expression", rule: true, multiline: true, hint: "Mirror of the long, e.g. close < val." },
+      { key: "entry_notes", label: "Notes", multiline: true, hint: "Anything the expression cannot say. Free text; not run." },
     ],
   },
   {
@@ -145,8 +145,8 @@ export const SPEC_SECTIONS: SpecSection[] = [
     description: "Order type and placement mechanics.",
     fields: [
       { key: "order_type", label: "Order type", required: true, hint: "Market / Limit / Stop / Stop limit" },
-      { key: "order_placement", label: "Placement detail", multiline: true },
-      { key: "slippage_assumption", label: "Slippage assumption" },
+      { key: "order_placement", label: "Placement detail", multiline: true, hint: "How the order is worked. Free text; audit fills on bar close." },
+      { key: "slippage_assumption", label: "Slippage assumption", hint: "Note your assumption; the run screen sets the real slippage." },
     ],
   },
   {
@@ -156,7 +156,7 @@ export const SPEC_SECTIONS: SpecSection[] = [
     description: "Where the initial risk is defined.",
     fields: [
       { key: "stop_method", label: "Stop method", required: true, hint: "ATR / Ticks / Swing / Indicator / Percentage / Custom" },
-      { key: "stop_formula", label: "Stop formula", rule: true, multiline: true, required: true },
+      { key: "stop_formula", label: "Stop formula", rule: true, multiline: true, required: true, hint: "A whole number of ticks, e.g. 8. Indicator formulas block the run." },
     ],
   },
   {
@@ -165,8 +165,8 @@ export const SPEC_SECTIONS: SpecSection[] = [
     title: "Profit target",
     description: "Where profit is taken.",
     fields: [
-      { key: "target_method", label: "Target method", required: true },
-      { key: "target_formula", label: "Target formula", rule: true, multiline: true, required: true },
+      { key: "target_method", label: "Target method", required: true, hint: "R-multiple / Fixed ticks / Level / Trailing." },
+      { key: "target_formula", label: "Target formula", rule: true, multiline: true, required: true, hint: "A risk multiple like 2 * risk, or a plain number of ticks." },
     ],
   },
   {
@@ -175,11 +175,13 @@ export const SPEC_SECTIONS: SpecSection[] = [
     title: "Position sizing",
     description: "How quantity is determined.",
     fields: [
-      { key: "sizing_method", label: "Sizing method", required: true },
+      // Not required: the audit engine sizes every trade at a fixed 1 contract and never
+      // reads this field, so an empty method cannot change a result.
+      { key: "sizing_method", label: "Sizing method", hint: "Audit always uses a fixed 1 contract, so this changes nothing." },
       // Not required: the audit engine sizes every trade at a fixed 1 contract and never
       // reads this field, so an empty formula cannot change a result.
-      { key: "sizing_formula", label: "Sizing formula", rule: true, multiline: true },
-      { key: "max_position", label: "Maximum position size" },
+      { key: "sizing_formula", label: "Sizing formula", rule: true, multiline: true, hint: "Audit always uses a fixed 1 contract, so this changes nothing." },
+      { key: "max_position", label: "Maximum position size", hint: "Your own cap; the audit never holds more than 1 contract." },
     ],
   },
   {
@@ -188,9 +190,9 @@ export const SPEC_SECTIONS: SpecSection[] = [
     title: "Trade management",
     description: "Adjustments made while a trade is open.",
     fields: [
-      { key: "break_even", label: "Break-even rule", rule: true, multiline: true },
-      { key: "trailing_stop", label: "Trailing stop rule", rule: true, multiline: true },
-      { key: "scaling", label: "Scale in / scale out rules", rule: true, multiline: true },
+      { key: "break_even", label: "Break-even rule", rule: true, multiline: true, hint: "e.g. move stop to entry after 1 * risk. Not applied by the audit." },
+      { key: "trailing_stop", label: "Trailing stop rule", rule: true, multiline: true, hint: "e.g. trail 8 ticks behind close. Not applied by the audit." },
+      { key: "scaling", label: "Scale in / scale out rules", rule: true, multiline: true, hint: "e.g. exit half at 1R. Not applied — the audit trades 1 contract." },
     ],
   },
   {
@@ -199,22 +201,23 @@ export const SPEC_SECTIONS: SpecSection[] = [
     title: "Exit rules",
     description: "Every way a position can be closed.",
     fields: [
-      { key: "exit_conditions", label: "Exit conditions", rule: true, multiline: true, required: true },
-      { key: "time_exit", label: "Time-based exit", rule: true },
-      { key: "manual_exit", label: "Discretionary exit handling", multiline: true },
+      { key: "exit_conditions", label: "Exit conditions", rule: true, multiline: true, required: true, hint: "Every way the trade closes: stop, target, time. One per line." },
+      { key: "time_exit", label: "Time-based exit", rule: true, hint: "A clock time, e.g. 15:55 — the audit flattens at the last session bar." },
+      { key: "manual_exit", label: "Discretionary exit handling", multiline: true, hint: "How you would handle judgement exits. Free text; not run." },
     ],
   },
+
   {
     key: "filters",
     index: 13,
     title: "Filters",
     description: "Conditions that block otherwise valid trades.",
     fields: [
-      { key: "volatility_filter", label: "Volatility / ATR filter", rule: true, multiline: true },
-      { key: "volume_filter", label: "Volume filter", rule: true },
-      { key: "news_filter", label: "News / economic event filter", multiline: true },
-      { key: "calendar_filter", label: "Day of week / holiday filter" },
-      { key: "regime_filter", label: "Market regime filter", rule: true, multiline: true },
+      { key: "volatility_filter", label: "Volatility / ATR filter", rule: true, multiline: true, hint: "e.g. atr(14) > 4. Not applied by the audit engine." },
+      { key: "volume_filter", label: "Volume filter", rule: true, hint: "e.g. volume > 1000. Not applied by the audit engine." },
+      { key: "news_filter", label: "News / economic event filter", multiline: true, hint: "Events you would stand aside for. Free text; not run." },
+      { key: "calendar_filter", label: "Day of week / holiday filter", hint: "e.g. skip Mondays and half-days. Free text; not run." },
+      { key: "regime_filter", label: "Market regime filter", rule: true, multiline: true, hint: "e.g. close > sma(close, 200). Not applied by the audit engine." },
     ],
   },
   {
@@ -223,12 +226,12 @@ export const SPEC_SECTIONS: SpecSection[] = [
     title: "Trade constraints",
     description: "Hard operational limits.",
     fields: [
-      { key: "max_trades", label: "Maximum trades" },
-      { key: "daily_loss_limit", label: "Daily loss limit" },
-      { key: "daily_profit_limit", label: "Daily profit limit" },
-      { key: "trading_hours", label: "Trading hours", required: true },
-      { key: "overnight", label: "Overnight positions allowed" },
-      { key: "cooldown", label: "Cooldown period" },
+      { key: "max_trades", label: "Maximum trades", hint: "Per day, e.g. 1. The audit takes at most one trade a day." },
+      { key: "daily_loss_limit", label: "Daily loss limit", hint: "Dollar stop for the day, e.g. 500. Not applied by the audit." },
+      { key: "daily_profit_limit", label: "Daily profit limit", hint: "Dollar goal for the day, e.g. 1000. Not applied by the audit." },
+      { key: "trading_hours", label: "Trading hours", required: true, hint: "e.g. 09:45-10:55 ET. The audit bakes its own entry window." },
+      { key: "overnight", label: "Overnight positions allowed", hint: "Yes or No. The audit always flattens before the close." },
+      { key: "cooldown", label: "Cooldown period", hint: "Wait after a trade, e.g. 30 minutes. Not applied by the audit." },
     ],
   },
 ];
