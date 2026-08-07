@@ -6,7 +6,6 @@ function scoreOne(section: string, field: string, value: string) {
   const def: StrategyDefinition = emptyDefinition();
   def.sections[section]![field] = value;
   const r = validateDefinition(def);
-  const issues = r.issues.filter((i) => i.message.includes('"') && i.message.includes(field === "stop_formula" ? "Stop formula" : ""));
   return { determinism: r.determinism, issues: r.issues };
 }
 
