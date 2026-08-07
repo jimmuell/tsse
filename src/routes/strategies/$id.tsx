@@ -479,6 +479,7 @@ function StrategyDetail() {
 
         <aside className="space-y-6 lg:sticky lg:top-20 lg:self-start">
           <ValidationPanel result={validation} />
+          <AuditabilityPanel definition={definition} />
           <AiReviewPanel definition={definition} />
         </aside>
       </div>
