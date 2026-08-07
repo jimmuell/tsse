@@ -136,4 +136,10 @@ describe("compileWireConfig — profile window / trade window must not overlap",
     const tradeStart = toMinutes(config!.session.trade_window[0]);
     expect(profileEnd).toBeLessThanOrEqual(tradeStart);
   });
+
+  test("session.trade_window ends at 10:55 — last eligible entry bar's start, not its end", () => {
+    const { config, blockers } = compile(baseDef());
+    expect(blockers).toEqual([]);
+    expect(config?.session.trade_window[1]).toBe("10:55");
+  });
 });

@@ -331,7 +331,10 @@ export function compileWireConfig(input: WireConfigInput): {
       // value area built partly from bars that haven't closed yet relative to that entry
       // (look-ahead bias). ["09:30", "11:00"] here (profile and entry windows overlapping)
       // was confirmed against the live engine to produce materially worse, biased results.
-      trade_window: ["09:45", "11:00"],
+      // trade_window[1] is the last eligible entry bar's START time, not its end — on a
+      // 5-minute chart a bar starting at 10:55 closes at 11:00, honouring the spec's stated
+      // "before 11:00 AM" cutoff.
+      trade_window: ["09:45", "10:55"],
       force_flat: "15:55", // declared but NOT applied — engine bakes last RTH bar
     },
     bias: {
