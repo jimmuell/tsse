@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
 
   const { data: job, error: jobError } = await supabaseAdmin
     .from("backtest_jobs")
-    .select("id, user_id, strategy_id, symbol, timeframe, config, status")
+    .select("id, user_id, strategy_id, symbol, timeframe, config, payload, status")
     .eq("engine_run_id", parsed.run_id)
     .single();
   if (jobError || !job) return new Response("Unknown run", { status: 404 });
