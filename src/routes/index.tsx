@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { SPEC_SECTIONS } from "@/lib/strategy-schema";
 
 
 export const Route = createFileRoute("/")({
@@ -28,8 +29,7 @@ export const Route = createFileRoute("/")({
       { title: "Trading Strategy Specification Engine" },
       {
         name: "description",
-        content:
-          "Turn trading ideas from videos, PDFs and code into deterministic, machine-readable strategy specifications across 17 standardized sections.",
+        content: `Turn trading ideas from videos, PDFs and code into deterministic, machine-readable strategy specifications across ${SPEC_SECTIONS.length} standardized sections.`,
       },
       { property: "og:title", content: "Trading Strategy Specification Engine" },
       {
@@ -145,7 +145,7 @@ function Dashboard() {
           <FileCode2 className="mx-auto size-8 text-muted-foreground" />
           <h2 className="mt-4 text-sm font-semibold">No specifications yet</h2>
           <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
-            Paste a transcript, article, or indicator code and the engine will draft a 17-section
+            Paste a transcript, article, or indicator code and the engine will draft a {SPEC_SECTIONS.length}-section
             specification, then ask you about anything it could not determine.
           </p>
           <Button asChild className="mt-5 gap-1.5">

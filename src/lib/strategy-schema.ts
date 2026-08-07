@@ -5,7 +5,11 @@ export type SpecField = {
   /** Field holds an executable rule expression and is graded for determinism. */
   rule?: boolean;
   multiline?: boolean;
+  /** Human-facing help text shown in the form. NEVER sent to the extraction model. */
   hint?: string;
+  /** Optional guidance sent to the extraction model only. Omit unless it genuinely
+   *  helps a model read the source material. */
+  extractionHint?: string;
 };
 
 export type SpecSection = {
@@ -74,7 +78,7 @@ export const SPEC_SECTIONS: SpecSection[] = [
       { key: "source", label: "Source", hint: "Where it came from — video link, book, forum. Free text." },
       { key: "version", label: "Version", hint: "Your own label, e.g. v1.2. Free text; not read by the audit." },
       { key: "description", label: "Description", multiline: true, required: true, hint: "Plain-English summary of the idea. Free text; not read by the audit." },
-      { key: "confidence", label: "Confidence", hint: "0-100" },
+      { key: "confidence", label: "Confidence", hint: "0-100", extractionHint: "0-100" },
     ],
   },
   {
@@ -113,6 +117,7 @@ export const SPEC_SECTIONS: SpecSection[] = [
         key: "value_area_pct",
         label: "Value area %",
         hint: "e.g. 70 — the % of volume the value area covers",
+        extractionHint: "e.g. 70 — the % of volume the value area covers",
       },
     ],
   },
@@ -144,7 +149,7 @@ export const SPEC_SECTIONS: SpecSection[] = [
     title: "Order execution",
     description: "Order type and placement mechanics.",
     fields: [
-      { key: "order_type", label: "Order type", required: true, hint: "Market / Limit / Stop / Stop limit" },
+      { key: "order_type", label: "Order type", required: true, hint: "Market / Limit / Stop / Stop limit", extractionHint: "Market / Limit / Stop / Stop limit" },
       { key: "order_placement", label: "Placement detail", multiline: true, hint: "How the order is worked. Free text; audit fills on bar close." },
       { key: "slippage_assumption", label: "Slippage assumption", hint: "Note your assumption; the run screen sets the real slippage." },
     ],
@@ -155,7 +160,7 @@ export const SPEC_SECTIONS: SpecSection[] = [
     title: "Stop loss",
     description: "Where the initial risk is defined.",
     fields: [
-      { key: "stop_method", label: "Stop method", required: true, hint: "ATR / Ticks / Swing / Indicator / Percentage / Custom" },
+      { key: "stop_method", label: "Stop method", required: true, hint: "ATR / Ticks / Swing / Indicator / Percentage / Custom", extractionHint: "ATR / Ticks / Swing / Indicator / Percentage / Custom" },
       { key: "stop_formula", label: "Stop formula", rule: true, multiline: true, required: true, hint: "A whole number of ticks, e.g. 8. Indicator formulas block the run." },
     ],
   },

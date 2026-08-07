@@ -37,8 +37,7 @@ export const Route = createFileRoute("/strategies/$id")({
       { title: "Strategy specification — TSSE" },
       {
         name: "description",
-        content:
-          "Review, refine and export a deterministic 17-section trading strategy specification with completeness and ambiguity scoring.",
+        content: `Review, refine and export a deterministic ${SPEC_SECTIONS.length}-section trading strategy specification with completeness and ambiguity scoring.`,
       },
       { property: "og:title", content: "Strategy specification — TSSE" },
       {

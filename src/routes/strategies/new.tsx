@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { SOURCE_TYPES, emptyDefinition } from "@/lib/strategy-schema";
+import { SOURCE_TYPES, SPEC_SECTIONS, emptyDefinition } from "@/lib/strategy-schema";
 import { YOUTUBE_URL } from "@/lib/youtube-url";
 
 export const Route = createFileRoute("/strategies/new")({
@@ -27,8 +27,7 @@ export const Route = createFileRoute("/strategies/new")({
       { title: "New strategy specification — TSSE" },
       {
         name: "description",
-        content:
-          "Paste a transcript, article or indicator code and generate a deterministic 17-section trading strategy specification.",
+        content: `Paste a transcript, article or indicator code and generate a deterministic ${SPEC_SECTIONS.length}-section trading strategy specification.`,
       },
       { property: "og:title", content: "New strategy specification — TSSE" },
       {
@@ -273,7 +272,7 @@ function NewStrategy() {
               value={sourceContent}
               placeholder={
                 manual
-                  ? "Optional notes. You'll fill the 17 sections yourself."
+                  ? `Optional notes. You'll fill the ${SPEC_SECTIONS.length} sections yourself.`
                   : isVideo
                     ? "Fetch the video above, or paste its transcript here…"
                     : "Paste the transcript, article, forum post or indicator code here…"

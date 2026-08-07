@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { Check, Loader2, Sparkle } from "lucide-react";
+import { SPEC_SECTIONS } from "@/lib/strategy-schema";
 
 const STEPS = [
   "Reading source material",
   "Identifying strategy structure",
-  "Drafting the 17 specification sections",
+  `Drafting the ${SPEC_SECTIONS.length} specification sections`,
   "Scoring determinism and ambiguity",
   "Preparing clarifying questions",
 ];
