@@ -156,6 +156,14 @@ Deno.serve(async (req) => {
   const rangeStart = equity.length > 0 ? equity[0].t : null;
   const rangeEnd = equity.length > 0 ? equity[equity.length - 1].t : null;
 
+  // The exact wire config this job sent to the engine, recorded verbatim so a run's settings
+  // can be read back later. Jobs with no payload.wireConfig omit the key entirely rather than
+  // writing an empty object.
+  const payload = (job.payload ?? {}) as Record<string, unknown>;
+  const wireConfig = payload["wireConfig"];
+  const hasWireConfig =
+    wireConfig !== null && typeof wireConfig === "object" && !Array.isArray(wireConfig);
+
   const { data: run, error: runError } = await supabaseAdmin
     .from("backtest_runs")
     .insert({
@@ -165,6 +173,7 @@ Deno.serve(async (req) => {
       config: {
         ...(job.config as Record<string, unknown>),
         engineVersion: result.provenance.engine_version,
+        ...(hasWireConfig ? { wireConfig } : {}),
       },
       compiled: {
         rangeStart,
