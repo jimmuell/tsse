@@ -56,7 +56,48 @@ export const SUBJECTIVE_TERMS = [
   "too far",
 ];
 
-const OPERATOR_PATTERN = /(>=|<=|==|!=|>|<|\bcrosses\b|\bAND\b|\bOR\b|\bNOT\b)/i;
+export const OPERATOR_PATTERN = /(>=|<=|==|!=|>|<|\bcrosses\b|\bAND\b|\bOR\b|\bNOT\b)/i;
+
+/** Hedging words that turn a quantity vague. Applied to "quantity" rule fields only, on top of
+ *  SUBJECTIVE_TERMS, so a value like "around 2R" or "a few ticks" still fails. */
+export const VAGUE_QUANTITY_TERMS = [
+  "around",
+  "approximately",
+  "approx",
+  "circa",
+  "few",
+  "several",
+  "couple",
+  "ish",
+  "or so",
+  "somewhere",
+  "give or take",
+  "at least",
+  "at most",
+  "up to",
+];
+
+/** A clock time such as 15:55. */
+const CLOCK_PATTERN = /\b\d{1,2}:\d{2}\b/;
+/** A numeric literal — the anchor of any definite quantity ("8", "2 * risk", "1.5R"). */
+const NUMBER_PATTERN = /(^|[^A-Za-z0-9_.])\d+(\.\d+)?/;
+
+export function findVagueQuantityTerms(text: string): string[] {
+  const lower = text.toLowerCase();
+  return VAGUE_QUANTITY_TERMS.filter((term) =>
+    new RegExp(`(^|\\W)${term.replace(/ /g, "\\s+")}(\\W|$)`).test(lower),
+  );
+}
+
+/**
+ * A "quantity" rule field is deterministic when it reads as a definite quantity: a number, a
+ * simple arithmetic expression or multiple ("2 * risk"), a tick/point count, or a clock time
+ * ("15:55") — with no subjective or hedging language. Demanding a comparison operator here
+ * would mark the specification down for holding exactly the values the audit engine requires.
+ */
+export function isDefiniteQuantity(value: string): boolean {
+  return CLOCK_PATTERN.test(value) || NUMBER_PATTERN.test(value);
+}
 
 export function findSubjectiveTerms(text: string): string[] {
   const lower = text.toLowerCase();
@@ -95,9 +136,15 @@ export function validateDefinition(def: StrategyDefinition): ValidationResult {
     const value = get(def, section.key, field.key);
     if (!value) continue;
     ruleTotal += 1;
+    const kind = field.rule ?? "condition";
     const subjective = findSubjectiveTerms(value);
-    const hasOperator = OPERATOR_PATTERN.test(value);
-    if (subjective.length === 0 && hasOperator) {
+    const vague = kind === "quantity" ? findVagueQuantityTerms(value) : [];
+    const wellFormed =
+      kind === "quantity"
+        ? isDefiniteQuantity(value) && vague.length === 0
+        : OPERATOR_PATTERN.test(value);
+
+    if (subjective.length === 0 && wellFormed) {
       ruleDeterministic += 1;
     }
     if (subjective.length > 0) {
@@ -107,11 +154,14 @@ export function validateDefinition(def: StrategyDefinition): ValidationResult {
         message: `"${field.label}" contains subjective language: ${subjective.join(", ")}.`,
       });
     }
-    if (!hasOperator) {
+    if (!wellFormed) {
       issues.push({
         level: "warning",
         section: section.title,
-        message: `"${field.label}" has no comparison or Boolean operator, so it cannot be evaluated mechanically.`,
+        message:
+          kind === "quantity"
+            ? `"${field.label}" does not read as a definite quantity — give a number, a multiple such as "2 * risk", or a clock time such as 15:55.`
+            : `"${field.label}" has no comparison or Boolean operator, so it cannot be evaluated mechanically.`,
       });
     }
   }
