@@ -27,6 +27,9 @@ const BacktestResultSchema = z.object({
     dataset_version: z.string().nullable(),
     config_hash: z.string().nullable(),
     completed_at: z.string().nullable(),
+    // The engine already sends this on the backtest path; optional because older runs and the
+    // event-study path do not. Declared so it is kept instead of being silently stripped.
+    dataset_id: z.string().nullable().optional(),
   }),
 });
 
@@ -99,7 +102,7 @@ export const Route = createFileRoute("/api/public/backtest-callback")({
 
         const { data: job, error: jobError } = await supabaseAdmin
           .from("backtest_jobs")
-          .select("id, user_id, strategy_id, symbol, timeframe, config, status")
+          .select("id, user_id, strategy_id, symbol, timeframe, config, payload, status")
           .eq("engine_run_id", parsed.run_id)
           .single();
         if (jobError || !job) return new Response("Unknown run", { status: 404 });
@@ -137,6 +140,14 @@ export const Route = createFileRoute("/api/public/backtest-callback")({
         const rangeStart = equity.length > 0 ? equity[0]!.t : null;
         const rangeEnd = equity.length > 0 ? equity[equity.length - 1]!.t : null;
 
+        // The exact wire config this job sent to the engine, recorded verbatim so a run's
+        // settings can be read back later. Older jobs have no payload.wireConfig — in that
+        // case the key is omitted entirely rather than written as an empty object.
+        const payload = (job.payload ?? {}) as Record<string, unknown>;
+        const wireConfig = payload["wireConfig"];
+        const hasWireConfig =
+          wireConfig !== null && typeof wireConfig === "object" && !Array.isArray(wireConfig);
+
         const { data: run, error: runError } = await supabaseAdmin
           .from("backtest_runs")
           .insert({
@@ -146,6 +157,7 @@ export const Route = createFileRoute("/api/public/backtest-callback")({
             config: {
               ...(job.config as Record<string, unknown>),
               engineVersion: result.provenance.engine_version,
+              ...(hasWireConfig ? { wireConfig } : {}),
             } as never,
             compiled: {
               rangeStart,

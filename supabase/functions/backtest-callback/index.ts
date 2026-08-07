@@ -36,6 +36,9 @@ const BacktestResultSchema = z.object({
     dataset_version: z.string().nullable(),
     config_hash: z.string().nullable(),
     completed_at: z.string().nullable(),
+    // Sent by the engine on the backtest path; optional because older runs and the
+    // event-study path do not send it. Declared so it is kept, not silently stripped.
+    dataset_id: z.string().nullable().optional(),
   }),
 });
 
@@ -110,7 +113,7 @@ Deno.serve(async (req) => {
 
   const { data: job, error: jobError } = await supabaseAdmin
     .from("backtest_jobs")
-    .select("id, user_id, strategy_id, symbol, timeframe, config, status")
+    .select("id, user_id, strategy_id, symbol, timeframe, config, payload, status")
     .eq("engine_run_id", parsed.run_id)
     .single();
   if (jobError || !job) return new Response("Unknown run", { status: 404 });
@@ -153,6 +156,14 @@ Deno.serve(async (req) => {
   const rangeStart = equity.length > 0 ? equity[0].t : null;
   const rangeEnd = equity.length > 0 ? equity[equity.length - 1].t : null;
 
+  // The exact wire config this job sent to the engine, recorded verbatim so a run's settings
+  // can be read back later. Jobs with no payload.wireConfig omit the key entirely rather than
+  // writing an empty object.
+  const payload = (job.payload ?? {}) as Record<string, unknown>;
+  const wireConfig = payload["wireConfig"];
+  const hasWireConfig =
+    wireConfig !== null && typeof wireConfig === "object" && !Array.isArray(wireConfig);
+
   const { data: run, error: runError } = await supabaseAdmin
     .from("backtest_runs")
     .insert({
@@ -162,6 +173,7 @@ Deno.serve(async (req) => {
       config: {
         ...(job.config as Record<string, unknown>),
         engineVersion: result.provenance.engine_version,
+        ...(hasWireConfig ? { wireConfig } : {}),
       },
       compiled: {
         rangeStart,
