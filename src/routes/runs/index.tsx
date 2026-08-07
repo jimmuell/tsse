@@ -96,7 +96,7 @@ function RunsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("backtest_runs")
-        .select("id, strategy_id, dataset_name, created_at, stats, strategies(name)")
+        .select("id, strategy_id, dataset_name, created_at, stats, config, compiled, strategies(name)")
         .order("created_at", { ascending: false })
         .limit(200);
       if (error) throw error;
