@@ -72,14 +72,14 @@ function schemaDoc(): string {
         (f) =>
           `    - ${f.key} (${f.label})${f.required ? " [required]" : ""}${
             f.rule ? " [must be a Boolean/arithmetic expression]" : ""
-          }${f.hint ? ` — ${f.hint}` : ""}`,
+          }${f.extractionHint ? ` — ${f.extractionHint}` : ""}`,
       )
       .join("\n");
     return `  ${section.key} — ${section.title}: ${section.description}\n${fields}`;
   }).join("\n");
 }
 
-const SYSTEM_PROMPT = `You are the Trading Strategy Specification Engine.
+export const SYSTEM_PROMPT = `You are the Trading Strategy Specification Engine.
 
 Your job is to convert a natural-language or code description of a trading strategy into a deterministic, machine-readable Strategy Definition.
 
