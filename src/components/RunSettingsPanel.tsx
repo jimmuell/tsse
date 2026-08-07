@@ -232,6 +232,7 @@ export function RunSettingsPanel({
           ))}
         </TableBody>
       </Table>
+      )}
     </div>
   );
 }
