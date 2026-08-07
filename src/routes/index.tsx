@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { SPEC_SECTIONS } from "@/lib/strategy-schema";
 
 
 export const Route = createFileRoute("/")({
