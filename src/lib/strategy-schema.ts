@@ -1,9 +1,14 @@
+export type RuleKind = "condition" | "quantity";
+
 export type SpecField = {
   key: string;
   label: string;
   required?: boolean;
-  /** Field holds an executable rule expression and is graded for determinism. */
-  rule?: boolean;
+  /** Field holds an executable rule expression and is graded for determinism.
+   *  "condition" — a Boolean test, graded on comparison/Boolean operators.
+   *  "quantity"  — a number, multiple or clock time, graded as a definite quantity.
+   *  Truthy either way, so every existing `field.rule` consumer keeps working. */
+  rule?: RuleKind;
   multiline?: boolean;
   /** Human-facing help text shown in the form. NEVER sent to the extraction model. */
   hint?: string;
@@ -112,7 +117,7 @@ export const SPEC_SECTIONS: SpecSection[] = [
     description: "Conditions that create a potential trade.",
     fields: [
       { key: "setup_type", label: "Setup type", required: true, hint: "e.g. Opening-range break of the value area." },
-      { key: "setup_conditions", label: "Setup conditions", rule: true, multiline: true, required: true, hint: "One condition per line, e.g. close > vah. Lines are ANDed." },
+      { key: "setup_conditions", label: "Setup conditions", rule: "condition", multiline: true, required: true, hint: "One condition per line, e.g. close > vah. Lines are ANDed." },
       {
         key: "value_area_pct",
         label: "Value area %",
@@ -128,8 +133,8 @@ export const SPEC_SECTIONS: SpecSection[] = [
     description: "How long versus short is determined.",
     fields: [
       { key: "bias_method", label: "Bias method", required: true, hint: "e.g. Break above VAH is long, below VAL is short." },
-      { key: "long_condition", label: "Long condition", rule: true, multiline: true, hint: "Comparison expression, e.g. close > vah. One per line." },
-      { key: "short_condition", label: "Short condition", rule: true, multiline: true, hint: "Comparison expression, e.g. close < val. One per line." },
+      { key: "long_condition", label: "Long condition", rule: "condition", multiline: true, hint: "Comparison expression, e.g. close > vah. One per line." },
+      { key: "short_condition", label: "Short condition", rule: "condition", multiline: true, hint: "Comparison expression, e.g. close < val. One per line." },
     ],
   },
   {
@@ -138,8 +143,8 @@ export const SPEC_SECTIONS: SpecSection[] = [
     title: "Entry rules",
     description: "Exact Boolean trigger for entering a position.",
     fields: [
-      { key: "long_entry", label: "Long entry expression", rule: true, multiline: true, required: true, hint: "Must compare bar close to a level, e.g. close > vah." },
-      { key: "short_entry", label: "Short entry expression", rule: true, multiline: true, hint: "Mirror of the long, e.g. close < val." },
+      { key: "long_entry", label: "Long entry expression", rule: "condition", multiline: true, required: true, hint: "Must compare bar close to a level, e.g. close > vah." },
+      { key: "short_entry", label: "Short entry expression", rule: "condition", multiline: true, hint: "Mirror of the long, e.g. close < val." },
       { key: "entry_notes", label: "Notes", multiline: true, hint: "Anything the expression cannot say. Free text; not run." },
     ],
   },
@@ -161,7 +166,7 @@ export const SPEC_SECTIONS: SpecSection[] = [
     description: "Where the initial risk is defined.",
     fields: [
       { key: "stop_method", label: "Stop method", required: true, hint: "ATR / Ticks / Swing / Indicator / Percentage / Custom", extractionHint: "ATR / Ticks / Swing / Indicator / Percentage / Custom" },
-      { key: "stop_formula", label: "Stop formula", rule: true, multiline: true, required: true, hint: "A whole number of ticks, e.g. 8. Indicator formulas block the run." },
+      { key: "stop_formula", label: "Stop formula", rule: "quantity", multiline: true, required: true, hint: "A whole number of ticks, e.g. 8. Indicator formulas block the run." },
     ],
   },
   {
@@ -171,7 +176,7 @@ export const SPEC_SECTIONS: SpecSection[] = [
     description: "Where profit is taken.",
     fields: [
       { key: "target_method", label: "Target method", required: true, hint: "R-multiple / Fixed ticks / Level / Trailing." },
-      { key: "target_formula", label: "Target formula", rule: true, multiline: true, required: true, hint: "A risk multiple like 2 * risk, or a plain number of ticks." },
+      { key: "target_formula", label: "Target formula", rule: "quantity", multiline: true, required: true, hint: "A risk multiple like 2 * risk, or a plain number of ticks." },
     ],
   },
   {
@@ -185,7 +190,7 @@ export const SPEC_SECTIONS: SpecSection[] = [
       { key: "sizing_method", label: "Sizing method", hint: "Audit always uses a fixed 1 contract, so this changes nothing." },
       // Not required: the audit engine sizes every trade at a fixed 1 contract and never
       // reads this field, so an empty formula cannot change a result.
-      { key: "sizing_formula", label: "Sizing formula", rule: true, multiline: true, hint: "Audit always uses a fixed 1 contract, so this changes nothing." },
+      { key: "sizing_formula", label: "Sizing formula", rule: "quantity", multiline: true, hint: "Audit always uses a fixed 1 contract, so this changes nothing." },
       { key: "max_position", label: "Maximum position size", hint: "Your own cap; the audit never holds more than 1 contract." },
     ],
   },
@@ -195,9 +200,9 @@ export const SPEC_SECTIONS: SpecSection[] = [
     title: "Trade management",
     description: "Adjustments made while a trade is open.",
     fields: [
-      { key: "break_even", label: "Break-even rule", rule: true, multiline: true, hint: "e.g. move stop to entry after 1 * risk. Not applied by the audit." },
-      { key: "trailing_stop", label: "Trailing stop rule", rule: true, multiline: true, hint: "e.g. trail 8 ticks behind close. Not applied by the audit." },
-      { key: "scaling", label: "Scale in / scale out rules", rule: true, multiline: true, hint: "e.g. exit half at 1R. Not applied — the audit trades 1 contract." },
+      { key: "break_even", label: "Break-even rule", rule: "condition", multiline: true, hint: "e.g. move stop to entry after 1 * risk. Not applied by the audit." },
+      { key: "trailing_stop", label: "Trailing stop rule", rule: "condition", multiline: true, hint: "e.g. trail 8 ticks behind close. Not applied by the audit." },
+      { key: "scaling", label: "Scale in / scale out rules", rule: "condition", multiline: true, hint: "e.g. exit half at 1R. Not applied — the audit trades 1 contract." },
     ],
   },
   {
@@ -206,8 +211,8 @@ export const SPEC_SECTIONS: SpecSection[] = [
     title: "Exit rules",
     description: "Every way a position can be closed.",
     fields: [
-      { key: "exit_conditions", label: "Exit conditions", rule: true, multiline: true, required: true, hint: "Every way the trade closes: stop, target, time. One per line." },
-      { key: "time_exit", label: "Time-based exit", rule: true, hint: "A clock time, e.g. 15:55 — the audit flattens at the last session bar." },
+      { key: "exit_conditions", label: "Exit conditions", rule: "condition", multiline: true, required: true, hint: "Every way the trade closes: stop, target, time. One per line." },
+      { key: "time_exit", label: "Time-based exit", rule: "quantity", hint: "A clock time, e.g. 15:55 — the audit flattens at the last session bar." },
       { key: "manual_exit", label: "Discretionary exit handling", multiline: true, hint: "How you would handle judgement exits. Free text; not run." },
     ],
   },
@@ -218,11 +223,11 @@ export const SPEC_SECTIONS: SpecSection[] = [
     title: "Filters",
     description: "Conditions that block otherwise valid trades.",
     fields: [
-      { key: "volatility_filter", label: "Volatility / ATR filter", rule: true, multiline: true, hint: "e.g. atr(14) > 4. Not applied by the audit engine." },
-      { key: "volume_filter", label: "Volume filter", rule: true, hint: "e.g. volume > 1000. Not applied by the audit engine." },
+      { key: "volatility_filter", label: "Volatility / ATR filter", rule: "condition", multiline: true, hint: "e.g. atr(14) > 4. Not applied by the audit engine." },
+      { key: "volume_filter", label: "Volume filter", rule: "condition", hint: "e.g. volume > 1000. Not applied by the audit engine." },
       { key: "news_filter", label: "News / economic event filter", multiline: true, hint: "Events you would stand aside for. Free text; not run." },
       { key: "calendar_filter", label: "Day of week / holiday filter", hint: "e.g. skip Mondays and half-days. Free text; not run." },
-      { key: "regime_filter", label: "Market regime filter", rule: true, multiline: true, hint: "e.g. close > sma(close, 200). Not applied by the audit engine." },
+      { key: "regime_filter", label: "Market regime filter", rule: "condition", multiline: true, hint: "e.g. close > sma(close, 200). Not applied by the audit engine." },
     ],
   },
   {
