@@ -59,25 +59,38 @@ const DEDICATED_CONFIG_KEYS = new Set([
   "data.granularity_needed",
 ]);
 
+/** True when the run recorded the exact wire config sent to the engine. Runs saved before
+ *  WIT-FRONTEND-08 did not, and must never be back-filled with a guessed value. */
+function wireConfigOf(run: RunSettingsRun): Record<string, unknown> | null {
+  const wire = asRecord(run.config)["wireConfig"];
+  const record = asRecord(wire);
+  return Object.keys(record).length > 0 ? record : null;
+}
+
 function settingsFor(run: RunSettingsRun) {
   const config = asRecord(run.config);
   const compiled = asRecord(run.compiled);
   const provenance = asRecord(compiled["provenance"]);
-  const data = asRecord(config["data"]);
+  // Prefer the recorded wire config — it is literally what the engine was asked to run.
+  // Everything else is only a fallback for runs recorded before it was captured.
+  const wire = wireConfigOf(run);
+  const source = wire ?? config;
+  const data = asRecord(source["data"]);
   const window = asRecord(data["window"]);
-  const flat = flatten(config);
+  const flat = flatten(source);
 
   const core: Record<string, unknown> = {
-    "Date window — from": window["start"] ?? epochToIso(compiled["rangeStart"]),
-    "Date window — to": window["end"] ?? epochToIso(compiled["rangeEnd"]),
-    "Data set id": data["dataset"] ?? config["dataset"],
+    "Date window — from": window["start"] ?? (wire ? undefined : epochToIso(compiled["rangeStart"])),
+    "Date window — to": window["end"] ?? (wire ? undefined : epochToIso(compiled["rangeEnd"])),
+    "Data set id": data["dataset"] ?? (wire ? undefined : config["dataset"]),
     "Data set label": run.dataset_name,
-    "Chart timeframe": data["granularity_needed"] ?? config["timeframe"],
+    "Chart timeframe": data["granularity_needed"] ?? (wire ? undefined : config["timeframe"]),
   };
 
   const rules: Record<string, unknown> = {};
   for (const [key, val] of Object.entries(flat)) {
     if (DEDICATED_CONFIG_KEYS.has(key)) continue;
+    if (key === "wireConfig" || key.startsWith("wireConfig.")) continue;
     rules[key] = val;
   }
 
