@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { SYSTEM_PROMPT } from "./extraction.server";
 import { SPEC_SECTIONS } from "./strategy-schema";
 
