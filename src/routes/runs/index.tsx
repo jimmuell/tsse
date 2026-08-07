@@ -333,6 +333,19 @@ function RunsPage() {
                   </TableBody>
                 </Table>
               </div>
+
+              <RunSettingsPanel
+                runs={compared.map((run) => ({
+                  id: run.id,
+                  dataset_name: run.dataset_name,
+                  created_at: run.created_at,
+                  config: run.config,
+                  compiled: run.compiled,
+                  label: `${run.strategies?.name ?? "Strategy"} · ${new Date(
+                    run.created_at,
+                  ).toLocaleString()}`,
+                }))}
+              />
             </div>
           ) : null}
 
