@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { checkAuditability } from "./auditability";
 import { normalizeDefinition, type StrategyDefinition } from "../strategy-schema";
 
