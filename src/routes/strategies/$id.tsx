@@ -155,16 +155,6 @@ function StrategyDetail() {
     setDefinition((prev) => {
       if (!prev) return prev;
       const section = { ...(prev.sections[sectionKey] ?? {}), [fieldKey]: value };
-      // The engine always sizes at a fixed 1 contract, so a sizing formula without a
-      // sizing method is never a real gap — fill the required method automatically.
-      if (
-        sectionKey === "position_sizing" &&
-        fieldKey === "sizing_formula" &&
-        value.trim() &&
-        !String(section["sizing_method"] ?? "").trim()
-      ) {
-        section["sizing_method"] = "Fixed 1 contract";
-      }
       return { ...prev, sections: { ...prev.sections, [sectionKey]: section } };
     });
     setDirty(true);
