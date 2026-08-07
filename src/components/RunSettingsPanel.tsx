@@ -1,4 +1,6 @@
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 /**
@@ -133,6 +135,7 @@ export function RunSettingsPanel({
   runs: RunSettingsRun[];
   title?: string;
 }) {
+  const [open, setOpen] = useState(false);
   if (runs.length === 0) return null;
   const groups = buildGroups(runs);
   const multi = runs.length > 1;
@@ -141,12 +144,24 @@ export function RunSettingsPanel({
   return (
     <div className="overflow-auto rounded-lg border border-border bg-card">
       <div className="flex flex-wrap items-baseline gap-2 border-b border-border px-4 py-3">
-        <p className="text-sm font-medium">{title}</p>
-        <p className="text-xs text-muted-foreground">
-          Shown exactly as stored on the run.{" "}
-          {multi ? "Rows that are not identical across the compared runs are marked." : null}
-        </p>
-        {anyWithoutWireConfig ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="-ml-2 h-7 gap-1 px-2 text-sm font-medium"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+        >
+          {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          {open ? `Hide ${title.toLowerCase()}` : `Show ${title.toLowerCase()}`}
+        </Button>
+        {open ? (
+          <p className="text-xs text-muted-foreground">
+            Shown exactly as stored on the run.{" "}
+            {multi ? "Rows that are not identical across the compared runs are marked." : null}
+          </p>
+        ) : null}
+        {open && anyWithoutWireConfig ? (
           <p className="w-full text-xs text-muted-foreground">
             {multi ? "One or more of these runs was" : "This run was"} recorded before runs
             captured their full settings, so some values were never stored and are shown as
@@ -154,6 +169,7 @@ export function RunSettingsPanel({
           </p>
         ) : null}
       </div>
+      {!open ? null : (
       <Table>
         <TableHeader>
           <TableRow>
@@ -216,6 +232,7 @@ export function RunSettingsPanel({
           ))}
         </TableBody>
       </Table>
+      )}
     </div>
   );
 }
