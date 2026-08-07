@@ -72,6 +72,8 @@ type RunRow = {
   dataset_name: string;
   created_at: string;
   stats: Partial<BacktestStats> | null;
+  config: unknown;
+  compiled: unknown;
   strategies: { name: string } | null;
 };
 
