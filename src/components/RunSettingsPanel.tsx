@@ -136,6 +136,7 @@ export function RunSettingsPanel({
   if (runs.length === 0) return null;
   const groups = buildGroups(runs);
   const multi = runs.length > 1;
+  const anyWithoutWireConfig = runs.some((run) => wireConfigOf(run) === null);
 
   return (
     <div className="overflow-auto rounded-lg border border-border bg-card">
@@ -145,6 +146,13 @@ export function RunSettingsPanel({
           Shown exactly as stored on the run.{" "}
           {multi ? "Rows that are not identical across the compared runs are marked." : null}
         </p>
+        {anyWithoutWireConfig ? (
+          <p className="w-full text-xs text-muted-foreground">
+            {multi ? "One or more of these runs was" : "This run was"} recorded before runs
+            captured their full settings, so some values were never stored and are shown as
+            &quot;{NOT_RECORDED}&quot;. They are not guessed or back-filled.
+          </p>
+        ) : null}
       </div>
       <Table>
         <TableHeader>
