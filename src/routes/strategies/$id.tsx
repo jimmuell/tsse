@@ -17,6 +17,7 @@ import { ExtractingScreen } from "@/components/ExtractingScreen";
 import { SectionCard } from "@/components/SectionCard";
 import { BacktestPanel } from "@/components/BacktestPanel";
 import { ValidationPanel } from "@/components/ValidationPanel";
+import { AuditabilityPanel } from "@/components/AuditabilityPanel";
 import { AiReviewPanel } from "@/components/AiReviewPanel";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -479,6 +480,7 @@ function StrategyDetail() {
 
         <aside className="space-y-6 lg:sticky lg:top-20 lg:self-start">
           <ValidationPanel result={validation} />
+          <AuditabilityPanel definition={definition} />
           <AiReviewPanel definition={definition} />
         </aside>
       </div>
