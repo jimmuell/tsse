@@ -230,9 +230,8 @@ export const SPEC_SECTIONS: SpecSection[] = [
       { key: "daily_loss_limit", label: "Daily loss limit", hint: "Dollar stop for the day, e.g. 500. Not applied by the audit." },
       { key: "daily_profit_limit", label: "Daily profit limit", hint: "Dollar goal for the day, e.g. 1000. Not applied by the audit." },
       { key: "trading_hours", label: "Trading hours", required: true, hint: "e.g. 09:45-10:55 ET. The audit bakes its own entry window." },
-
-      { key: "overnight", label: "Overnight positions allowed" },
-      { key: "cooldown", label: "Cooldown period" },
+      { key: "overnight", label: "Overnight positions allowed", hint: "Yes or No. The audit always flattens before the close." },
+      { key: "cooldown", label: "Cooldown period", hint: "Wait after a trade, e.g. 30 minutes. Not applied by the audit." },
     ],
   },
 ];
