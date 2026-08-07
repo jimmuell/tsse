@@ -5,6 +5,7 @@ import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
+import { RunSettingsPanel, type RunSettingsRun } from "@/components/RunSettingsPanel";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -226,6 +227,8 @@ export function BacktestPanel({
 
 
 
+  const [loadedSettings, setLoadedSettings] = useState<RunSettingsRun | null>(null);
+
   /** Re-open an archived run in the results area below. */
   async function loadRun(runId: string) {
     const { data, error } = await supabase
@@ -237,6 +240,13 @@ export function BacktestPanel({
       toast.error("Could not load that run.");
       return;
     }
+    setLoadedSettings({
+      id: data.id,
+      dataset_name: data.dataset_name,
+      config: data.config,
+      compiled: data.compiled,
+      label: "This run",
+    });
     const cfg = (data.config ?? {}) as Record<string, unknown>;
     const meta = (data.compiled ?? {}) as Record<string, unknown>;
     const trades = (data.trades ?? []) as unknown as Trade[];
@@ -310,7 +320,14 @@ export function BacktestPanel({
         toast.error("The results were saved but could not be loaded.");
         return;
       }
-      const cfg = (data.config ?? {}) as Record<string, unknown>;
+      setLoadedSettings({
+      id: data.id,
+      dataset_name: data.dataset_name,
+      config: data.config,
+      compiled: data.compiled,
+      label: "This run",
+    });
+    const cfg = (data.config ?? {}) as Record<string, unknown>;
       const meta = (data.compiled ?? {}) as Record<string, unknown>;
       const trades = (data.trades ?? []) as unknown as Trade[];
       setResult({
@@ -722,6 +739,8 @@ export function BacktestPanel({
           </div>
         </>
       ) : null}
+
+      {loadedSettings ? <RunSettingsPanel runs={[loadedSettings]} /> : null}
 
       {(runsQuery.data ?? []).length > 0 ? (
         <div className="rounded-lg border border-border bg-card">

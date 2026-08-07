@@ -5,6 +5,7 @@ import { ArrowLeft, Columns2, History, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AppShell } from "@/components/AppShell";
+import { RunSettingsPanel } from "@/components/RunSettingsPanel";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -72,6 +73,8 @@ type RunRow = {
   dataset_name: string;
   created_at: string;
   stats: Partial<BacktestStats> | null;
+  config: unknown;
+  compiled: unknown;
   strategies: { name: string } | null;
 };
 
@@ -96,7 +99,7 @@ function RunsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("backtest_runs")
-        .select("id, strategy_id, dataset_name, created_at, stats, strategies(name)")
+        .select("id, strategy_id, dataset_name, created_at, stats, config, compiled, strategies(name)")
         .order("created_at", { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -331,6 +334,19 @@ function RunsPage() {
                   </TableBody>
                 </Table>
               </div>
+
+              <RunSettingsPanel
+                runs={compared.map((run) => ({
+                  id: run.id,
+                  dataset_name: run.dataset_name,
+                  created_at: run.created_at,
+                  config: run.config,
+                  compiled: run.compiled,
+                  label: `${run.strategies?.name ?? "Strategy"} · ${new Date(
+                    run.created_at,
+                  ).toLocaleString()}`,
+                }))}
+              />
             </div>
           ) : null}
 
